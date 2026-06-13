@@ -1,7 +1,6 @@
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
-import { Footer } from './Footer'
 import { ToastContainer } from '@/components/ui/Toast'
 import { LoginModal } from '@/components/auth/LoginModal'
 import { RegisterModal } from '@/components/auth/RegisterModal'
@@ -20,7 +19,6 @@ export function AppLayout() {
         <main className="flex-1 px-4 md:px-6 lg:px-8 py-4 md:py-6 pb-24 lg:pb-8 max-w-[1400px] mx-auto w-full overflow-x-hidden">
           <Outlet />
         </main>
-        <Footer />
       </div>
 
       <ToastContainer />
