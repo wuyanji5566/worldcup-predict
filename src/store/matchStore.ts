@@ -1,8 +1,10 @@
 import { create } from 'zustand'
 import type { CachedMatch } from '@/types/match'
-import { getItem, setItem } from '@/utils/storage'
+import { setItem } from '@/utils/storage'
 import { fetchSchedule } from '@/api/matchApi'
 import { WORLD_CUP_GROUPS, TEAM_NAMES_ZH } from '@/utils/constants'
+import { loadRealSchedule } from '@/services/baiduSync'
+import { fetchMatchesByDateRange } from '@/services/realSportsApi'
 
 function getGroupStageMatches(): CachedMatch[] {
   const matches: CachedMatch[] = []
@@ -85,6 +87,7 @@ interface MatchStore {
   lastFetch: number
   init: () => Promise<void>
   refresh: () => Promise<void>
+  syncLiveMatch: (matchId: string, data: { homeScore: number; awayScore: number; status: string; minute: number }) => void
   getMatchesByStage: (stage: string) => CachedMatch[]
   getMatchesByDate: (date: string) => CachedMatch[]
   getLiveMatches: () => CachedMatch[]
@@ -98,31 +101,63 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
   lastFetch: 0,
 
   init: async () => {
-    const cached = getItem<Record<string, CachedMatch>>('matches', {})
-    if (Object.keys(cached).length > 0) {
-      set({ matches: cached, lastFetch: Date.now() })
+    // Skip stale cache, always use latest real schedule
+    localStorage.removeItem('wc2026_matches')
+
+    set({ isLoading: true, error: null })
+
+    // 1st: Try free openfootball GitHub API (no key needed)
+    try {
+      const { matches: ghMatches, error } = await fetchSchedule()
+      if (!error && ghMatches.length > 0) {
+        const matchMap: Record<string, CachedMatch> = {}
+        for (const m of ghMatches) matchMap[m.id] = m
+        set({ matches: matchMap, isLoading: false, error: null, lastFetch: Date.now() })
+        setItem('matches', matchMap)
+        return
+      }
+    } catch { /* GitHub API failed */ }
+
+    // 2nd: Try api-football (if key configured)
+    try {
+      const apiMatches = await fetchMatchesByDateRange('2026-06-11', '2026-06-19')
+      if (apiMatches.length > 0) {
+        const matchMap: Record<string, CachedMatch> = {}
+        for (const m of apiMatches) matchMap[m.id] = m
+        set({ matches: matchMap, isLoading: false, error: null, lastFetch: Date.now() })
+        setItem('matches', matchMap)
+        return
+      }
+    } catch { /* API failed */ }
+
+    // 3rd: Fallback to static real schedule (6月11-14日，20场)
+    const realSchedule = loadRealSchedule()
+    if (realSchedule.length > 0) {
+      const matchMap: Record<string, CachedMatch> = {}
+      for (const m of realSchedule) matchMap[m.id] = m
+      // Also merge group stage matches for full tournament view
+      for (const m of getGroupStageMatches()) {
+        if (!matchMap[m.id]) matchMap[m.id] = m
+      }
+      set({ matches: matchMap, isLoading: false, lastFetch: Date.now() })
+      setItem('matches', matchMap)
       return
     }
 
-    set({ isLoading: true, error: null })
     try {
       const { matches: apiMatches, error } = await fetchSchedule()
       if (!error && apiMatches.length > 0) {
         const matchMap: Record<string, CachedMatch> = {}
-        for (const m of apiMatches) {
-          matchMap[m.id] = m
-        }
+        for (const m of apiMatches) matchMap[m.id] = m
         set({ matches: matchMap, isLoading: false, lastFetch: Date.now() })
         setItem('matches', matchMap)
         return
       }
-    } catch { /* fallback to demo data */ }
+    } catch { /* fallback */ }
 
     const demos = getGroupStageMatches()
     const demoMap: Record<string, CachedMatch> = {}
-    for (const m of demos) {
-      demoMap[m.id] = m
-    }
+    for (const m of demos) demoMap[m.id] = m
     set({ matches: demoMap, isLoading: false, error: null, lastFetch: Date.now() })
     setItem('matches', demoMap)
   },
@@ -142,6 +177,20 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
       }
     } catch { /* ignore */ }
     set({ isLoading: false })
+  },
+
+  syncLiveMatch: (matchId, data) => {
+    const matches = { ...get().matches }
+    const match = matches[matchId]
+    if (!match) return
+    match.homeScore = data.homeScore
+    match.awayScore = data.awayScore
+    match.status = data.status === 'LIVE' ? 'live' : data.status === 'HT' ? 'live' : data.status === 'FINISHED' ? 'finished' : match.status
+    match.lastUpdated = Date.now()
+    if (data.status === 'LIVE' || data.status === 'HT') match.status = 'live'
+    if (data.status === 'FINISHED') match.status = 'finished'
+    set({ matches })
+    setItem('matches', matches)
   },
 
   getMatchesByStage: (stage) => Object.values(get().matches).filter((m) => m.stage === stage),

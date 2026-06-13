@@ -13,6 +13,14 @@ export function LiveMatchPanel() {
     startSimulation, stopSimulation, resetSimulation,
   } = useLiveData()
 
+  // Auto-start simulation on mount
+  useEffect(() => {
+    if (!isRunning) {
+      const t = setTimeout(() => startSimulation(), 1500)
+      return () => clearTimeout(t)
+    }
+  }, []) // eslint-disable-line
+
   const { pollState, isStale, secondsSinceLastPoll } = useLiveSoccerData()
   const {
     goalToasts, dismissGoalToast,

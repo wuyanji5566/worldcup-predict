@@ -11,6 +11,7 @@ import { calculatePredictionPoints } from '@/services/settlementEngine'
 import { useAuthStore } from '@/store/authStore'
 import { usePredictionStore } from '@/store/predictionStore'
 import { useLeaderboardStore } from '@/store/leaderboardStore'
+import { useMatchStore } from '@/store/matchStore'
 import type { LiveMatch, ProbabilitySnapshot, LiveEvent } from '@/services/liveTypes'
 
 // ---- Context value shape ----
@@ -60,6 +61,17 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
   const settledRef = useRef(false)
   const prevStatusRef = useRef(match.status)
   const addToast = useUIStore((s) => s.addToast)
+
+  // ---- Sync live data into matchStore so "比赛" page shows real-time scores ----
+  useEffect(() => {
+    const store = useMatchStore.getState()
+    store.syncLiveMatch(match.matchId, {
+      homeScore: match.liveScore.home,
+      awayScore: match.liveScore.away,
+      status: match.status,
+      minute: match.currentMinute,
+    })
+  }, [match.matchId, match.liveScore, match.status, match.currentMinute])
 
   // ---- Auto-settlement on FINISHED (memoized via ref) ----
   useEffect(() => {
