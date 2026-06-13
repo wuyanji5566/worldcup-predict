@@ -37,7 +37,7 @@ interface ChatCompletionResponse {
 }
 
 const DEFAULT_CONFIG: DeepSeekConfig = {
-  apiKey: '',
+  apiKey: import.meta.env.VITE_DEEPSEEK_API_KEY ?? '',
   model: 'deepseek-chat',
   baseUrl: 'https://api.deepseek.com/v1',
 }
