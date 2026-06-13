@@ -2,9 +2,10 @@ import { Trophy, Users, Target, TrendingUp, ChevronRight, Flame } from 'lucide-r
 import { cn } from '@/utils/cn'
 import { CountdownTimer } from '@/components/dashboard/CountdownTimer'
 import { LiveMatchPanel } from '@/components/dashboard/LiveMatchPanel'
+import { lazy, Suspense } from 'react'
 import { FeaturedMatch } from '@/components/dashboard/FeaturedMatch'
-import { PointsChart } from '@/components/dashboard/PointsChart'
 import { MiniLeaderboard } from '@/components/dashboard/MiniLeaderboard'
+const PointsChart = lazy(() => import('@/components/dashboard/PointsChart').then(m => ({ default: m.PointsChart })))
 import {
   upcomingMatches,
   pointsHistory,
@@ -82,7 +83,9 @@ export function DashboardPage() {
           <FeaturedMatch match={featuredMatch} />
 
           {/* Points Chart */}
-          <PointsChart data={pointsHistory} />
+          <Suspense fallback={<div className="h-48 rounded-2xl bg-surface-2 animate-pulse" />}>
+            <PointsChart data={pointsHistory} />
+          </Suspense>
 
           {/* Recent Results Row */}
           <div>
