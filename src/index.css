@@ -1,0 +1,314 @@
+@import "tailwindcss";
+
+@theme {
+  /* Surface palette */
+  --color-surface-0: #08080c;
+  --color-surface-1: #0e0e15;
+  --color-surface-2: #14141e;
+  --color-surface-3: #1a1a28;
+
+  /* Accent system */
+  --color-accent: #06b6d4;
+  --color-accent-glow: rgba(6, 182, 212, 0.25);
+  --color-accent-subtle: rgba(6, 182, 212, 0.08);
+
+  /* Semantic accents */
+  --color-gold: #f59e0b;
+  --color-gold-glow: rgba(245, 158, 11, 0.25);
+  --color-live: #ef4444;
+  --color-success: #22c55e;
+  --color-info: #3b82f6;
+  --color-warning: #f59e0b;
+
+  /* Text */
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-tertiary: #64748b;
+
+  /* Border */
+  --color-border-default: rgba(255, 255, 255, 0.06);
+  --color-border-strong: rgba(255, 255, 255, 0.10);
+  --color-border-accent: rgba(6, 182, 212, 0.30);
+
+  /* Typography */
+  --font-sans: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", "Hiragino Sans GB", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+}
+
+/* ===== BASE ===== */
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--color-surface-0);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+#root { min-height: 100dvh; }
+
+/* ===== AMBIENT BACKGROUND TEXTURE ===== */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 0%, rgba(6, 182, 212, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(245, 158, 11, 0.03) 0%, transparent 50%),
+    radial-gradient(ellipse 40% 30% at 50% 50%, rgba(100, 116, 139, 0.02) 0%, transparent 70%);
+}
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 100px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+
+/* ===== ANIMATIONS ===== */
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.08); }
+}
+.live-pulse { animation: live-pulse 1.6s ease-in-out infinite; }
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up { animation: fade-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in { animation: fade-in 0.3s ease both; }
+
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.animate-slide-left { animation: slide-in-left 0.35s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton-shimmer {
+  background: linear-gradient(90deg, var(--color-surface-2) 25%, var(--color-surface-3) 50%, var(--color-surface-2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ===== CARD HOVER ===== */
+.card-lift {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.2s ease,
+              box-shadow 0.2s ease;
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-border-strong);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* ===== GLASS PANEL ===== */
+.glass {
+  background: rgba(20, 20, 30, 0.8);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass { background: rgba(20, 20, 30, 0.98); backdrop-filter: none; }
+}
+
+/* ===== FOCUS RING ===== */
+*:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ===== REDUCED MOTION ===== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ===== CHART.JS DARK THEME OVERRIDES ===== */
+canvas { max-width: 100%; }
+
+/* ===== NUMBER TABULAR ===== */
+.tabular-nums { font-variant-numeric: tabular-nums; }
+
+/* ============================================================
+   QUANTUM TERMINAL — Premium Hero Section Styles
+   ============================================================ */
+
+/* Glowing mesh gradient blobs */
+@keyframes mesh-drift-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -20px) scale(1.05); }
+  66% { transform: translate(-15px, 10px) scale(0.95); }
+}
+@keyframes mesh-drift-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-25px, 15px) scale(0.97); }
+  66% { transform: translate(20px, -10px) scale(1.03); }
+}
+@keyframes mesh-drift-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(10px, -25px) scale(1.04); }
+}
+
+.mesh-blob-1 { animation: mesh-drift-1 20s ease-in-out infinite; }
+.mesh-blob-2 { animation: mesh-drift-2 25s ease-in-out infinite; }
+.mesh-blob-3 { animation: mesh-drift-3 18s ease-in-out infinite; }
+
+/* Glass card with premium hover */
+.glass-card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.glass-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(6, 182, 212, 0.35);
+  box-shadow:
+    0 4px 24px rgba(6, 182, 212, 0.08),
+    0 0 0 1px rgba(6, 182, 212, 0.15) inset;
+  transform: translateY(-3px) scale(1.01);
+}
+
+/* Text gradient for hero title */
+.text-gradient-hero {
+  background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 30%, #94a3b8 65%, #64748b 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Neon green glow for accuracy stat */
+.text-glow-green {
+  color: #4ade80;
+  text-shadow: 0 0 20px rgba(74, 222, 128, 0.3), 0 0 40px rgba(74, 222, 128, 0.1);
+}
+
+/* Cyan glow for primary CTA */
+.btn-glow-cyan {
+  box-shadow:
+    0 0 20px rgba(6, 182, 212, 0.25),
+    0 0 60px rgba(6, 182, 212, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+.btn-glow-cyan:hover {
+  box-shadow:
+    0 0 30px rgba(6, 182, 212, 0.35),
+    0 0 80px rgba(6, 182, 212, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+/* Border beam animation for cards */
+@keyframes border-beam {
+  0% { left: -100%; }
+  100% { left: 200%; }
+}
+.border-beam::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(6, 182, 212, 0.08), transparent);
+  transition: none;
+}
+.border-beam:hover::after {
+  animation: border-beam 1.2s ease-in-out;
+}
+
+/* Subtle glow dot pulse */
+@keyframes glow-dot {
+  0%, 100% { box-shadow: 0 0 4px rgba(74, 222, 128, 0.4); }
+  50% { box-shadow: 0 0 12px rgba(74, 222, 128, 0.8); }
+}
+.glow-dot { animation: glow-dot 2s ease-in-out infinite; }
+
+/* Data stream decoration line */
+.data-stream {
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(6, 182, 212, 0.3) 20%,
+    rgba(6, 182, 212, 0.6) 50%,
+    rgba(6, 182, 212, 0.3) 80%,
+    transparent 100%
+  );
+  height: 1px;
+}
+
+/* ============================================================
+   LIVE MATCH MICRO-INTERACTIONS
+   ============================================================ */
+
+/* Score flash — gold neon burst on goal */
+@keyframes score-flash {
+  0%   { background-color: rgba(250, 204, 21, 0.35); transform: scale(1.12); }
+  25%  { background-color: rgba(250, 204, 21, 0.20); transform: scale(1.06); }
+  50%  { background-color: rgba(250, 204, 21, 0.10); transform: scale(1.02); }
+  100% { background-color: transparent; transform: scale(1); }
+}
+.score-flash {
+  animation: score-flash 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* LIVE neon ping ring */
+@keyframes live-ring {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+.live-ring {
+  animation: live-ring 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Cyber heartbeat border for LIVE match cards */
+@keyframes live-heartbeat {
+  0%, 100% {
+    border-color: rgba(34, 197, 94, 0.15);
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.06), inset 0 0 8px rgba(34, 197, 94, 0.03);
+  }
+  15% {
+    border-color: rgba(34, 197, 94, 0.45);
+    box-shadow: 0 0 22px rgba(34, 197, 94, 0.15), inset 0 0 18px rgba(34, 197, 94, 0.06);
+  }
+  30% {
+    border-color: rgba(34, 197, 94, 0.20);
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.08), inset 0 0 10px rgba(34, 197, 94, 0.04);
+  }
+}
+.live-heartbeat {
+  animation: live-heartbeat 2.5s ease-in-out infinite;
+}
+
+/* Live event ticker — horizontal scroll */
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.ticker-track {
+  animation: ticker-scroll 30s linear infinite;
+}
+.ticker-track:hover {
+  animation-play-state: paused;
+}
+
