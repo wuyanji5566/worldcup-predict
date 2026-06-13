@@ -3,7 +3,6 @@ import { useEffect, lazy, Suspense } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Spinner } from '@/components/ui/Spinner'
 import { initAuth } from '@/store/authStore'
-import { loadDeepSeekConfig } from '@/services/deepseekApi'
 import { LiveDataProvider } from '@/context/LiveDataContext'
 
 const HomePage = lazy(() => import('@/pages/HomePage').then(m => ({ default: m.HomePage })))
@@ -28,7 +27,10 @@ function Loading() {
 }
 
 export default function App() {
-  useEffect(() => { initAuth(); loadDeepSeekConfig() }, [])
+  useEffect(() => {
+    initAuth()
+    import('@/services/deepseekApi').then(m => m.loadDeepSeekConfig())
+  }, [])
 
   return (
     <LiveDataProvider>
