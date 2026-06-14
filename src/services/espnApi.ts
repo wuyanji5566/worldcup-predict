@@ -186,7 +186,7 @@ export async function fetchEspnScoreboard(date?: string): Promise<CachedMatch[]>
 
   try {
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 10000)
+    const timer = setTimeout(() => controller.abort(), 5000)
 
     const res = await fetch(url, { signal: controller.signal })
     clearTimeout(timer)
@@ -211,25 +211,40 @@ export async function fetchEspnScoreboard(date?: string): Promise<CachedMatch[]>
 }
 
 /**
- * Fetch all available World Cup fixtures (past + upcoming)
+ * Fetch all available World Cup fixtures — today first, then nearby dates in parallel
  */
 export async function fetchEspnAllFixtures(): Promise<CachedMatch[]> {
-  // Try today first, then expand to nearby dates
   const today = new Date()
   const allMatches: CachedMatch[] = []
   const seen = new Set<string>()
 
-  // Fetch 3 days before + today + 5 days ahead
-  for (let offset = -3; offset <= 5; offset++) {
+  // 1. Fetch today FIRST (fast path — user sees data immediately)
+  const todayMatches = await fetchEspnScoreboard()
+  for (const m of todayMatches) {
+    seen.add(m.id)
+    allMatches.push(m)
+  }
+
+  // 2. Fetch nearby dates in PARALLEL (background)
+  const dateStrs: string[] = []
+  for (let offset = -2; offset <= 3; offset++) {
+    if (offset === 0) continue // already fetched today
     const d = new Date(today)
     d.setDate(d.getDate() + offset)
-    const dateStr = d.toISOString().split('T')[0]
+    dateStrs.push(d.toISOString().split('T')[0])
+  }
 
-    const matches = await fetchEspnScoreboard(dateStr)
-    for (const m of matches) {
-      if (!seen.has(m.id)) {
-        seen.add(m.id)
-        allMatches.push(m)
+  const results = await Promise.allSettled(
+    dateStrs.map((dateStr) => fetchEspnScoreboard(dateStr)),
+  )
+
+  for (const r of results) {
+    if (r.status === 'fulfilled') {
+      for (const m of r.value) {
+        if (!seen.has(m.id)) {
+          seen.add(m.id)
+          allMatches.push(m)
+        }
       }
     }
   }

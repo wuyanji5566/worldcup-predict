@@ -96,6 +96,16 @@ interface MatchStore {
   getMatchById: (id: string) => CachedMatch | undefined
 }
 
+// Auto-poll ESPN every 60s for live scores
+let _pollTimer: ReturnType<typeof setInterval> | null = null
+
+function startLivePolling() {
+  if (_pollTimer) return
+  _pollTimer = setInterval(() => {
+    useMatchStore.getState().pollLiveScores()
+  }, 60000) // every 60 seconds
+}
+
 export const useMatchStore = create<MatchStore>((set, get) => ({
   matches: {},
   isLoading: false,
@@ -120,6 +130,7 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
         }
         set({ matches: matchMap, isLoading: false, error: null, lastFetch: Date.now() })
         setItem('matches', matchMap)
+        startLivePolling() // auto-refresh scores every 60s
         return
       }
     } catch { /* ESPN failed, try next */ }
