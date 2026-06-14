@@ -203,7 +203,7 @@ export function AnalysisPage() {
 
             <button
               onClick={() => {
-                if (plan === 'member') { addCredits(999); setModalOpen(false); }
+                if (plan === 'member') { addCredits(999, true); setModalOpen(false); }
                 else { addCredits(1); setModalOpen(false); }
               }}
               className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm cursor-pointer active:scale-[0.98] ${
