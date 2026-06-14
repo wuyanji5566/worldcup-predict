@@ -5,6 +5,7 @@ import { fetchSchedule } from '@/api/matchApi'
 import { WORLD_CUP_GROUPS, TEAM_NAMES_ZH } from '@/utils/constants'
 import { loadRealSchedule } from '@/services/baiduSync'
 import { fetchMatchesByDateRange } from '@/services/realSportsApi'
+import { fetchEspnScoreboard, fetchEspnAllFixtures } from '@/services/espnApi'
 
 function getGroupStageMatches(): CachedMatch[] {
   const matches: CachedMatch[] = []
@@ -87,6 +88,7 @@ interface MatchStore {
   lastFetch: number
   init: () => Promise<void>
   refresh: () => Promise<void>
+  pollLiveScores: () => Promise<void>
   syncLiveMatch: (matchId: string, data: { homeScore: number; awayScore: number; status: string; minute: number }) => void
   getMatchesByStage: (stage: string) => CachedMatch[]
   getMatchesByDate: (date: string) => CachedMatch[]
@@ -101,12 +103,28 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
   lastFetch: 0,
 
   init: async () => {
-    // Skip stale cache, always use latest real schedule
+    // Skip stale cache
     localStorage.removeItem('wc2026_matches')
 
     set({ isLoading: true, error: null })
 
-    // 1st: Try free openfootball GitHub API (no key needed)
+    // 1st: ESPN API (free, no key, real 2026 World Cup data)
+    try {
+      const espnMatches = await fetchEspnAllFixtures()
+      if (espnMatches.length > 0) {
+        const matchMap: Record<string, CachedMatch> = {}
+        for (const m of espnMatches) matchMap[m.id] = m
+        // Also merge full tournament structure
+        for (const m of getGroupStageMatches()) {
+          if (!matchMap[m.id]) matchMap[m.id] = m
+        }
+        set({ matches: matchMap, isLoading: false, error: null, lastFetch: Date.now() })
+        setItem('matches', matchMap)
+        return
+      }
+    } catch { /* ESPN failed, try next */ }
+
+    // 2nd: Try free openfootball GitHub API
     try {
       const { matches: ghMatches, error } = await fetchSchedule()
       if (!error && ghMatches.length > 0) {
@@ -118,7 +136,7 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
       }
     } catch { /* GitHub API failed */ }
 
-    // 2nd: Try api-football (if key configured)
+    // 3rd: Try api-football (if key configured)
     try {
       const apiMatches = await fetchMatchesByDateRange('2026-06-11', '2026-06-19')
       if (apiMatches.length > 0) {
@@ -130,12 +148,11 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
       }
     } catch { /* API failed */ }
 
-    // 3rd: Fallback to static real schedule (6月11-14日，20场)
+    // 4th: Fallback to static real schedule (6月11-14日，20场)
     const realSchedule = loadRealSchedule()
     if (realSchedule.length > 0) {
       const matchMap: Record<string, CachedMatch> = {}
       for (const m of realSchedule) matchMap[m.id] = m
-      // Also merge group stage matches for full tournament view
       for (const m of getGroupStageMatches()) {
         if (!matchMap[m.id]) matchMap[m.id] = m
       }
@@ -144,17 +161,7 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
       return
     }
 
-    try {
-      const { matches: apiMatches, error } = await fetchSchedule()
-      if (!error && apiMatches.length > 0) {
-        const matchMap: Record<string, CachedMatch> = {}
-        for (const m of apiMatches) matchMap[m.id] = m
-        set({ matches: matchMap, isLoading: false, lastFetch: Date.now() })
-        setItem('matches', matchMap)
-        return
-      }
-    } catch { /* fallback */ }
-
+    // Last resort: generate mock data
     const demos = getGroupStageMatches()
     const demoMap: Record<string, CachedMatch> = {}
     for (const m of demos) demoMap[m.id] = m
@@ -164,6 +171,20 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
 
   refresh: async () => {
     set({ isLoading: true, error: null })
+    // Try ESPN first for refresh (fast, free, real data)
+    try {
+      const espnMatches = await fetchEspnScoreboard()
+      if (espnMatches.length > 0) {
+        const matchMap: Record<string, CachedMatch> = { ...get().matches }
+        for (const m of espnMatches) {
+          matchMap[m.id] = m
+        }
+        set({ matches: matchMap, isLoading: false, lastFetch: Date.now() })
+        setItem('matches', matchMap)
+        return
+      }
+    } catch { /* ignore */ }
+    // Fallback to other sources
     try {
       const { matches: apiMatches, error } = await fetchSchedule()
       if (!error && apiMatches.length > 0) {
@@ -177,6 +198,27 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
       }
     } catch { /* ignore */ }
     set({ isLoading: false })
+  },
+
+  /** Poll ESPN for live score updates */
+  pollLiveScores: async () => {
+    try {
+      const espnMatches = await fetchEspnScoreboard()
+      if (espnMatches.length === 0) return
+      const matchMap = { ...get().matches }
+      let updated = false
+      for (const em of espnMatches) {
+        const existing = matchMap[em.id]
+        if (!existing || existing.homeScore !== em.homeScore || existing.awayScore !== em.awayScore || existing.status !== em.status) {
+          matchMap[em.id] = { ...(existing ?? em), ...em, lastUpdated: Date.now() }
+          updated = true
+        }
+      }
+      if (updated) {
+        set({ matches: matchMap, lastFetch: Date.now() })
+        setItem('matches', matchMap)
+      }
+    } catch { /* silent */ }
   },
 
   syncLiveMatch: (matchId, data) => {
