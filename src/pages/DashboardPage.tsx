@@ -9,6 +9,7 @@ const PointsChart = lazy(() => import('@/components/dashboard/PointsChart').then
 import { useMatches } from '@/hooks/useMatches'
 import { useLeaderboard } from '@/hooks/useLeaderboard'
 import { topLeaderboard } from '@/data/mockData'
+import { useMatchStore } from '@/store/matchStore'
 
 const pointsHistory = [
   { date: '6/11', points: 12 },
@@ -23,6 +24,7 @@ const pointsHistory = [
 export function DashboardPage() {
   const { matches, liveMatches, upcomingMatches, finishedMatches, isLoading, error } = useMatches()
   const { entries: leaderboardEntries } = useLeaderboard()
+  const dataSource = useMatchStore((s) => s.dataSource)
 
   // Compute stats from real data
   const stats = useMemo(() => {
@@ -81,6 +83,13 @@ export function DashboardPage() {
           </h1>
           <p className="text-xs md:text-sm text-text-secondary mt-0.5">
             {isLoading ? '加载中...' : '2026 世界杯实时概览'}
+            <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+              dataSource.includes('ESPN') ? 'bg-emerald-500/10 text-emerald-400' :
+              dataSource.includes('模拟') ? 'bg-red-500/10 text-red-400' :
+              'bg-amber-500/10 text-amber-400'
+            }`}>
+              {dataSource}
+            </span>
           </p>
         </div>
         <div className="flex items-center gap-2">

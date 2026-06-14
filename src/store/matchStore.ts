@@ -86,6 +86,7 @@ interface MatchStore {
   isLoading: boolean
   error: string | null
   lastFetch: number
+  dataSource: string // where the data came from
   init: () => Promise<void>
   refresh: () => Promise<void>
   pollLiveScores: () => Promise<void>
@@ -111,6 +112,7 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
   isLoading: false,
   error: null,
   lastFetch: 0,
+  dataSource: '未加载',
 
   init: async () => {
     // Skip stale cache
@@ -128,7 +130,8 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
         for (const m of getGroupStageMatches()) {
           if (!matchMap[m.id]) matchMap[m.id] = m
         }
-        set({ matches: matchMap, isLoading: false, error: null, lastFetch: Date.now() })
+        console.log('[数据来源] ✅ ESPN API 实时数据，共', espnMatches.length, '场比赛')
+        set({ matches: matchMap, isLoading: false, error: null, lastFetch: Date.now(), dataSource: 'ESPN API 实时数据' })
         setItem('matches', matchMap)
         startLivePolling() // auto-refresh scores every 60s
         return
@@ -141,7 +144,8 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
       if (!error && ghMatches.length > 0) {
         const matchMap: Record<string, CachedMatch> = {}
         for (const m of ghMatches) matchMap[m.id] = m
-        set({ matches: matchMap, isLoading: false, error: null, lastFetch: Date.now() })
+        console.log('[数据来源] ⚠️ GitHub开源数据，共', ghMatches.length, '场')
+        set({ matches: matchMap, isLoading: false, error: null, lastFetch: Date.now(), dataSource: 'GitHub 开源数据' })
         setItem('matches', matchMap)
         return
       }
@@ -153,7 +157,8 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
       if (apiMatches.length > 0) {
         const matchMap: Record<string, CachedMatch> = {}
         for (const m of apiMatches) matchMap[m.id] = m
-        set({ matches: matchMap, isLoading: false, error: null, lastFetch: Date.now() })
+        console.log('[数据来源] ⚠️ API-Football，共', apiMatches.length, '场')
+        set({ matches: matchMap, isLoading: false, error: null, lastFetch: Date.now(), dataSource: 'API-Football' })
         setItem('matches', matchMap)
         return
       }
@@ -167,7 +172,8 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
       for (const m of getGroupStageMatches()) {
         if (!matchMap[m.id]) matchMap[m.id] = m
       }
-      set({ matches: matchMap, isLoading: false, lastFetch: Date.now() })
+      console.log('[数据来源] ⚠️ 静态真实赛程，共', realSchedule.length, '场')
+      set({ matches: matchMap, isLoading: false, lastFetch: Date.now(), dataSource: '静态真实赛程' })
       setItem('matches', matchMap)
       return
     }
@@ -176,7 +182,8 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
     const demos = getGroupStageMatches()
     const demoMap: Record<string, CachedMatch> = {}
     for (const m of demos) demoMap[m.id] = m
-    set({ matches: demoMap, isLoading: false, error: null, lastFetch: Date.now() })
+    console.log('[数据来源] ❌ 模拟数据（所有API不可用）')
+    set({ matches: demoMap, isLoading: false, error: null, lastFetch: Date.now(), dataSource: '模拟数据' })
     setItem('matches', demoMap)
   },
 
