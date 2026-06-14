@@ -73,7 +73,7 @@ function generateInsights(matches: MatchProbability[]): McKinseyInsight[] {
 export function AnalysisPage() {
   const { credits, isUnlocked, addCredits } = useUnlock()
   const [modalOpen, setModalOpen] = useState(false)
-  const [showQR, setShowQR] = useState(false)
+  const [showQR, setShowQR] = useState(true)
   const [plan, setPlan] = useState<'single' | 'member'>('single')
   const { matches } = useMatches()
 

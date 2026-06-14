@@ -11,7 +11,7 @@ export function MatchesPage() {
   const { credits, isUnlocked, addCredits } = useUnlock()
   const [filter, setFilter] = useState<'all' | 'live' | 'scheduled' | 'finished'>('all')
   const [showPayModal, setShowPayModal] = useState(false)
-  const [showQR, setShowQR] = useState(false)
+  const [showQR, setShowQR] = useState(true)
   const [plan, setPlan] = useState<'single' | 'member'>('single')
 
   const filtered = filter === 'all' ? matches
