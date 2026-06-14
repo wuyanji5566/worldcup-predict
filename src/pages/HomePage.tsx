@@ -81,7 +81,7 @@ export function HomePage() {
       {/* ================================================================
           MAIN CONTENT
           ================================================================ */}
-      <div className="relative z-10 max-w-6xl mx-auto px-4 md:px-6 lg:px-8 py-12 md:py-20 lg:py-28">
+      <div className="relative z-10 max-w-6xl mx-auto px-4 md:px-6 lg:px-8 pt-12 md:pt-20 lg:pt-28 pb-28 lg:pb-8">
         {/* ---- HERO TITLE SECTION ---- */}
         <div className="text-center mb-12 md:mb-16 lg:mb-20">
           {/* Eyebrow badge */}

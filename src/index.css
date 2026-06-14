@@ -147,8 +147,10 @@ body::before {
 /* ===== CHART.JS DARK THEME OVERRIDES ===== */
 canvas { max-width: 100%; }
 
-/* ===== NUMBER TABULAR ===== */
-.tabular-nums { font-variant-numeric: tabular-nums; }
+/* ===== MOBILE SAFE AREA ===== */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
 
 /* ============================================================
    QUANTUM TERMINAL — Premium Hero Section Styles

@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, CalendarDays, Trophy, UserCircle,
   LogIn, Swords, Target, ChevronLeft, ChevronRight, Flame, Zap,
-  BarChart3,
+  BarChart3, Home, X,
 } from 'lucide-react'
 
 const ZapIcon = Zap
@@ -111,32 +111,109 @@ export function Sidebar() {
       </aside>
 
       {/* Mobile Bottom Nav */}
+      <MobileBottomNav />
+    </>
+  )
+}
+
+function MobileBottomNav() {
+  const [moreOpen, setMoreOpen] = useState(false)
+
+  const mainTabs = [
+    { to: '/', icon: Home, label: '首页' },
+    { to: '/dashboard', icon: LayoutDashboard, label: '仪表盘' },
+    { to: '/matches', icon: CalendarDays, label: '比赛' },
+    { to: '/leaderboard', icon: Trophy, label: '排行' },
+    { to: '/more', icon: ChevronRight, label: '更多', isMore: true },
+  ]
+
+  const moreTabs = [
+    { to: '/predictions', icon: Target, label: '我的预测' },
+    { to: '/bracket', icon: Swords, label: '淘汰赛' },
+    { to: '/groups', icon: Flame, label: '小组积分' },
+    { to: '/analysis', icon: BarChart3Icon, label: '概率分析' },
+    { to: '/rules', icon: Flame, label: '计分规则' },
+    { to: '/profile', icon: UserCircle, label: '个人中心' },
+  ]
+
+  return (
+    <>
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-30 glass border-t border-border-default safe-area-bottom">
         <div className="flex items-center justify-around h-16 max-w-lg mx-auto">
-          {[
-            { to: '/', icon: LayoutDashboard, label: '仪表盘' },
-            { to: '/matches', icon: CalendarDays, label: '比赛' },
-            { to: '/leaderboard', icon: Trophy, label: '排行' },
-            { to: '/predictions', icon: Target, label: '预测' },
-            { to: '/profile', icon: UserCircle, label: '我的' },
-          ].map((tab) => (
-            <NavLink
-              key={tab.to}
-              to={tab.to}
-              end={tab.to === '/'}
-              className={({ isActive }) =>
-                cn(
-                  'flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg no-underline transition-colors',
-                  isActive ? 'text-accent' : 'text-text-tertiary',
-                )
-              }
-            >
-              <tab.icon size={20} strokeWidth={1.75} />
-              <span className="text-[10px] font-medium">{tab.label}</span>
-            </NavLink>
-          ))}
+          {mainTabs.map((tab) => {
+            if (tab.isMore) {
+              return (
+                <button
+                  key={tab.to}
+                  onClick={() => setMoreOpen(!moreOpen)}
+                  className={cn(
+                    'flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg transition-colors cursor-pointer border-none bg-transparent',
+                    moreOpen ? 'text-accent' : 'text-text-tertiary',
+                  )}
+                >
+                  <tab.icon size={20} strokeWidth={moreOpen ? 2.5 : 1.75} />
+                  <span className="text-[10px] font-medium">{tab.label}</span>
+                </button>
+              )
+            }
+            return (
+              <NavLink
+                key={tab.to}
+                to={tab.to}
+                end={tab.to === '/'}
+                onClick={() => setMoreOpen(false)}
+                className={({ isActive }) =>
+                  cn(
+                    'flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg no-underline transition-colors',
+                    isActive ? 'text-accent' : 'text-text-tertiary',
+                  )
+                }
+              >
+                <tab.icon size={20} strokeWidth={1.75} />
+                <span className="text-[10px] font-medium">{tab.label}</span>
+              </NavLink>
+            )
+          })}
         </div>
       </nav>
+
+      {/* Slide-up "More" menu */}
+      {moreOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 flex items-end" onClick={() => setMoreOpen(false)}>
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <div
+            className="relative w-full bg-surface-1 border-t border-border-strong rounded-t-2xl p-5 animate-fade-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm font-bold text-text-primary">全部功能</span>
+              <button onClick={() => setMoreOpen(false)} className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-surface-2 transition-colors cursor-pointer">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 pb-6">
+              {moreTabs.map((tab) => (
+                <NavLink
+                  key={tab.to}
+                  to={tab.to}
+                  onClick={() => setMoreOpen(false)}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex items-center gap-3 p-3.5 rounded-xl no-underline border transition-all',
+                      isActive
+                        ? 'bg-accent/10 border-accent/20 text-accent'
+                        : 'bg-surface-2 border-border-default text-text-secondary hover:text-text-primary hover:border-border-strong',
+                    )
+                  }
+                >
+                  <tab.icon size={18} strokeWidth={1.5} />
+                  <span className="text-[13px] font-medium">{tab.label}</span>
+                </NavLink>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
