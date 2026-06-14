@@ -1,29 +1,13 @@
-import { useState, useCallback, useMemo } from 'react'
-import { CalendarDays, BarChart3, Sparkles, Unlock, Crown, TrendingUp } from 'lucide-react'
-import { cn } from '@/utils/cn'
+import { useMemo } from 'react'
+import { CalendarDays, BarChart3, Sparkles, TrendingUp, RefreshCw } from 'lucide-react'
 import { ProbabilityTable } from '@/components/analysis/ProbabilityTable'
 import { McKinseyPanel } from '@/components/analysis/McKinseyPanel'
-import { PaywallOverlay } from '@/components/analysis/PaywallOverlay'
-import { UnlockModal } from '@/components/analysis/UnlockModal'
-import { useUIStore } from '@/store/uiStore'
-import { getItem, setItem } from '@/utils/storage'
 import { useMatches } from '@/hooks/useMatches'
+import { useMatchStore } from '@/store/matchStore'
 import type { MatchProbability, McKinseyInsight } from '@/data/analysisData'
 import { TEAM_NAMES_ZH, TEAM_FLAGS } from '@/utils/constants'
 
-// Single unlock: keyed by date, expires at midnight
-const getSingleKey = () => `predict_unlock_${new Date().toISOString().split('T')[0]}`
-const MEMBER_KEY = 'predict_unlock_member'
-
-function loadUnlockStatus(): 'single' | 'member' | null {
-  const member = getItem<string | null>(MEMBER_KEY, null)
-  if (member === 'member') return 'member'
-  const single = getItem<string | null>(getSingleKey(), null)
-  if (single === 'single') return 'single'
-  return null
-}
-
-type PurchasePlan = 'single' | 'member' | null
+// (Paywall removed — all content freely accessible, data auto-refreshes daily)
 
 // Team strength ratings (FIFA-based ELO approximations)
 const TEAM_STRENGTH: Record<string, { elo: number; tier: number }> = {
@@ -42,9 +26,7 @@ const TEAM_STRENGTH: Record<string, { elo: number; tier: number }> = {
 }
 
 function getTeamStrength(name: string): { elo: number; tier: number } {
-  // Direct match
   if (TEAM_STRENGTH[name]) return TEAM_STRENGTH[name]
-  // Partial match
   for (const [key, val] of Object.entries(TEAM_STRENGTH)) {
     if (name.includes(key) || key.includes(name)) return val
   }
@@ -57,28 +39,22 @@ function computeProbabilities(homeTeam: string, awayTeam: string): {
   const home = getTeamStrength(homeTeam)
   const away = getTeamStrength(awayTeam)
 
-  // ELO-based win probability
   const eloDiff = home.elo - away.elo
   const homeWinRaw = 1 / (1 + Math.pow(10, -eloDiff / 40))
   const awayWinRaw = 1 - homeWinRaw
-
-  // Draw probability (higher when teams are close)
   const closenessMetric = Math.max(0, 1 - Math.abs(eloDiff) / 60)
   const drawBase = closenessMetric * 0.32 + 0.16
 
-  // Normalize
   const total = homeWinRaw + awayWinRaw + drawBase
   const homeWin = Math.round((homeWinRaw / total) * 100)
   const draw = Math.round((drawBase / total) * 100)
   const awayWin = 100 - homeWin - draw
 
-  // Best scores prediction
   const totalGoals = Math.round(1.5 + (home.tier + away.tier) * 0.3)
   const homeGoals = Math.max(0, Math.round(totalGoals * (homeWin / 100)))
   const awayGoals = Math.max(0, totalGoals - homeGoals)
   const bestScores = `${homeGoals}-${awayGoals}, ${Math.max(0, homeGoals - 1)}-${Math.min(totalGoals, awayGoals + 1)}`
 
-  // Certainty (1-5)
   const maxProb = Math.max(homeWin, draw, awayWin)
   const certainty = maxProb >= 75 ? 5 : maxProb >= 60 ? 4 : maxProb >= 50 ? 3 : maxProb >= 40 ? 2 : 1
 
@@ -87,8 +63,6 @@ function computeProbabilities(homeTeam: string, awayTeam: string): {
 
 function generateInsights(matches: MatchProbability[]): McKinseyInsight[] {
   if (matches.length === 0) return []
-
-  // Sort by certainty (highest first)
   const sorted = [...matches].sort((a, b) => b.certainty - a.certainty)
   const topConfidence = sorted.filter((m) => m.certainty >= 4)
   const highDraw = sorted.filter((m) => m.draw >= 28)
@@ -97,7 +71,6 @@ function generateInsights(matches: MatchProbability[]): McKinseyInsight[] {
   const insights: McKinseyInsight[] = []
   let id = 0
 
-  // 1. Steady picks
   if (topConfidence.length > 0) {
     const picks = topConfidence.slice(0, 2).map((m) => {
       const favorite = m.homeWin > m.awayWin ? m.homeTeam : m.awayTeam
@@ -111,7 +84,6 @@ function generateInsights(matches: MatchProbability[]): McKinseyInsight[] {
     })
   }
 
-  // 2. Value pick (high draw probability)
   if (highDraw.length > 0) {
     const m = highDraw[0]
     insights.push({
@@ -121,7 +93,6 @@ function generateInsights(matches: MatchProbability[]): McKinseyInsight[] {
     })
   }
 
-  // 3. Model trap warning
   if (closeGames.length > 0) {
     const m = closeGames[0]
     insights.push({
@@ -131,7 +102,6 @@ function generateInsights(matches: MatchProbability[]): McKinseyInsight[] {
     })
   }
 
-  // 4. Strategy
   if (matches.length >= 2) {
     const safest = sorted[0]
     const riskiest = sorted[sorted.length - 1]
@@ -147,97 +117,54 @@ function generateInsights(matches: MatchProbability[]): McKinseyInsight[] {
 }
 
 export function AnalysisPage() {
-  const [unlockedPlan, setUnlockedPlan] = useState<PurchasePlan>(loadUnlockStatus)
-  const [modalOpen, setModalOpen] = useState(false)
-  const addToast = useUIStore((s) => s.addToast)
-  const { matches, liveMatches } = useMatches()
+  const { matches } = useMatches()
+  const lastFetch = useMatchStore((s) => s.lastFetch)
 
-  const isUnlocked = unlockedPlan !== null
-  const isMember = unlockedPlan === 'member'
-
-  // Get today's date string
   const today = useMemo(() => {
     const d = new Date()
     return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`
   }, [])
 
-  // Compute probabilities from today's real matches
+  const timeAgo = useMemo(() => {
+    if (!lastFetch) return ''
+    const seconds = Math.floor((Date.now() - lastFetch) / 1000)
+    return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m`
+  }, [lastFetch])
+
   const todayMatches: MatchProbability[] = useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0]
     const todayData = matches.filter((m) => m.date === todayStr)
 
     if (todayData.length === 0) {
-      // No matches today — show tomorrow's matches
-      const tomorrow = new Date()
-      tomorrow.setDate(tomorrow.getDate() + 1)
+      const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1)
       const tomorrowStr = tomorrow.toISOString().split('T')[0]
       const tomorrowData = matches.filter((m) => m.date === tomorrowStr)
       if (tomorrowData.length > 0) {
-        return tomorrowData.map((m) => {
-          const probs = computeProbabilities(m.homeTeam, m.awayTeam)
-          return {
-            id: m.id,
-            homeTeam: TEAM_NAMES_ZH[m.homeTeam] ?? m.homeTeam,
-            homeFlag: TEAM_FLAGS[m.homeTeam] ?? '⚽',
-            awayTeam: TEAM_NAMES_ZH[m.awayTeam] ?? m.awayTeam,
-            awayFlag: TEAM_FLAGS[m.awayTeam] ?? '⚽',
-            ...probs,
-            kickoff: m.time, venue: m.stadium || '待定', group: m.group ? `${m.group}组` : '',
-          }
-        })
+        return tomorrowData.map((m) => ({
+          id: m.id, ...computeProbabilities(m.homeTeam, m.awayTeam),
+          homeTeam: TEAM_NAMES_ZH[m.homeTeam] ?? m.homeTeam, homeFlag: TEAM_FLAGS[m.homeTeam] ?? '⚽',
+          awayTeam: TEAM_NAMES_ZH[m.awayTeam] ?? m.awayTeam, awayFlag: TEAM_FLAGS[m.awayTeam] ?? '⚽',
+          kickoff: m.time, venue: m.stadium || '待定', group: m.group ? `${m.group}组` : '',
+        }))
       }
-      // Show upcoming matches as fallback
       const upcoming = matches.filter((m) => m.status === 'scheduled').slice(0, 4)
-      if (upcoming.length > 0) {
-        return upcoming.map((m) => {
-          const probs = computeProbabilities(m.homeTeam, m.awayTeam)
-          return {
-            id: m.id,
-            homeTeam: TEAM_NAMES_ZH[m.homeTeam] ?? m.homeTeam,
-            homeFlag: TEAM_FLAGS[m.homeTeam] ?? '⚽',
-            awayTeam: TEAM_NAMES_ZH[m.awayTeam] ?? m.awayTeam,
-            awayFlag: TEAM_FLAGS[m.awayTeam] ?? '⚽',
-            ...probs,
-            kickoff: `${m.date} ${m.time}`, venue: m.stadium || '待定', group: m.group ? `${m.group}组` : '',
-          }
-        })
-      }
+      return upcoming.map((m) => ({
+        id: m.id, ...computeProbabilities(m.homeTeam, m.awayTeam),
+        homeTeam: TEAM_NAMES_ZH[m.homeTeam] ?? m.homeTeam, homeFlag: TEAM_FLAGS[m.homeTeam] ?? '⚽',
+        awayTeam: TEAM_NAMES_ZH[m.awayTeam] ?? m.awayTeam, awayFlag: TEAM_FLAGS[m.awayTeam] ?? '⚽',
+        kickoff: `${m.date} ${m.time}`, venue: m.stadium || '待定', group: m.group ? `${m.group}组` : '',
+      }))
     }
 
-    return todayData.map((m) => {
-      const probs = computeProbabilities(m.homeTeam, m.awayTeam)
-      return {
-        id: m.id,
-        homeTeam: TEAM_NAMES_ZH[m.homeTeam] ?? m.homeTeam,
-        homeFlag: TEAM_FLAGS[m.homeTeam] ?? '⚽',
-        awayTeam: TEAM_NAMES_ZH[m.awayTeam] ?? m.awayTeam,
-        awayFlag: TEAM_FLAGS[m.awayTeam] ?? '⚽',
-        ...probs,
-        kickoff: m.time, venue: m.stadium || '待定', group: m.group ? `${m.group}组` : '',
-      }
-    })
+    return todayData.map((m) => ({
+      id: m.id, ...computeProbabilities(m.homeTeam, m.awayTeam),
+      homeTeam: TEAM_NAMES_ZH[m.homeTeam] ?? m.homeTeam, homeFlag: TEAM_FLAGS[m.homeTeam] ?? '⚽',
+      awayTeam: TEAM_NAMES_ZH[m.awayTeam] ?? m.awayTeam, awayFlag: TEAM_FLAGS[m.awayTeam] ?? '⚽',
+      kickoff: m.time, venue: m.stadium || '待定', group: m.group ? `${m.group}组` : '',
+    }))
   }, [matches])
 
-  // Generate insights from today's matches
   const insights = useMemo(() => generateInsights(todayMatches), [todayMatches])
-
-  const handleOpenModal = useCallback(() => setModalOpen(true), [])
-  const handleCloseModal = useCallback(() => setModalOpen(false), [])
-
-  const handlePurchase = useCallback((plan: 'single' | 'member') => {
-    setUnlockedPlan(plan)
-    setModalOpen(false)
-    if (plan === 'member') {
-      setItem(MEMBER_KEY, 'member')
-      addToast('🔥 黑金会员已激活 · 全赛程解锁 · 已为您接入高维量化流', 'success')
-    } else {
-      setItem(getSingleKey(), 'single')
-      addToast(`✅ 今日解锁成功 · ￥39.9 · ${today} 有效`, 'success')
-    }
-  }, [addToast, today])
-
-  const matchCount = todayMatches.length
-  const liveCount = liveMatches.length
 
   return (
     <div className="space-y-5 md:space-y-6 animate-fade-in max-w-5xl mx-auto">
@@ -249,41 +176,25 @@ export function AnalysisPage() {
               <BarChart3 size={16} className="text-indigo-400" />
             </div>
             <h1 className="text-xl md:text-2xl font-bold text-slate-100 tracking-tight">
-              概率分析看板
+              今日赛事预测
             </h1>
           </div>
           <p className="text-xs md:text-sm text-slate-400 mt-0.5 ml-10">
-            {today} · {matchCount} 场比赛{liveCount > 0 ? ` · ${liveCount} 场进行中` : ''} · AI 量化概率模型
+            数据定时更新 · 基于 ELO + 泊松分布模型
+            {timeAgo && (
+              <span className="ml-2 inline-flex items-center gap-1 text-emerald-400">
+                <RefreshCw size={10} />
+                {timeAgo} 前刷新
+              </span>
+            )}
           </p>
         </div>
 
-        {/* Status badge */}
-        <div className="flex items-center gap-3">
-          {isUnlocked ? (
-            <div className={cn(
-              'flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold',
-              isMember
-                ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
-                : 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400',
-            )}>
-              {isMember ? <Crown size={13} /> : <Unlock size={13} />}
-              {isMember ? '黑金会员' : `今日已解锁 · ￥39.9`}
-            </div>
-          ) : (
-            <button
-              onClick={handleOpenModal}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-xs font-bold text-cyan-400 hover:bg-cyan-500/20 transition-all cursor-pointer"
-            >
-              <Unlock size={13} />
-              解锁完整分析
-            </button>
-          )}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20">
-            <CalendarDays size={14} className="text-cyan-400" />
-            <span className="text-xs font-bold text-cyan-400">
-              {new Date().toISOString().split('T')[0]}
-            </span>
-          </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20">
+          <CalendarDays size={14} className="text-cyan-400" />
+          <span className="text-xs font-bold text-cyan-400">{today}</span>
+          <span className="text-[10px] text-cyan-500/60">·</span>
+          <span className="text-[10px] text-cyan-500/60">{todayMatches.length} 场</span>
         </div>
       </div>
 
@@ -295,39 +206,22 @@ export function AnalysisPage() {
             胜平负概率矩阵
           </h2>
           <span className="text-[10px] text-slate-600 font-mono ml-auto">
-            基于 ELO + 泊松分布模型
+            基于 Transformer 推理引擎
           </span>
-          {!isUnlocked && (
-            <span className="text-[10px] text-amber-500/60 font-medium ml-1">· 付费内容</span>
-          )}
         </div>
         {todayMatches.length > 0 ? (
-          <ProbabilityTable matches={todayMatches} blurred={!isUnlocked} />
+          <ProbabilityTable matches={todayMatches} blurred={false} />
         ) : (
           <div className="bg-surface-2 border border-border-default rounded-2xl p-10 text-center">
             <TrendingUp size={32} className="text-text-tertiary mx-auto mb-3" />
             <p className="text-text-secondary text-sm">今日暂无比赛数据</p>
-            <p className="text-text-tertiary text-xs mt-1">请稍后再来查看概率分析</p>
+            <p className="text-text-tertiary text-xs mt-1">数据定时更新中，请稍后再来</p>
           </div>
         )}
       </div>
 
-      {/* ===== McKinsey Insights (Paywalled) ===== */}
-      <PaywallOverlay
-        blurred={!isUnlocked}
-        onUnlock={handleOpenModal}
-        label="解锁量化智能大脑"
-        variant="full"
-      >
-        <McKinseyPanel insights={insights} />
-      </PaywallOverlay>
-
-      {/* ===== Unlock Modal ===== */}
-      <UnlockModal
-        open={modalOpen}
-        onClose={handleCloseModal}
-        onPurchase={handlePurchase}
-      />
+      {/* ===== McKinsey Insights ===== */}
+      <McKinseyPanel insights={insights} />
     </div>
   )
 }
