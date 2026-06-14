@@ -53,14 +53,14 @@ export function MatchesPage() {
           <div className="relative w-full max-w-sm bg-slate-900 border border-slate-700/50 rounded-2xl p-6 animate-fade-up" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-base font-bold text-white mb-2">解锁赛事预测</h3>
             <p className="text-xs text-slate-400 mb-4">
-              付费一次解锁 <span className="text-cyan-400 font-bold">5 条</span> 比赛信息，含实时比分、赛程详情、预测入口
+              付费一次解锁 <span className="text-cyan-400 font-bold">1 条</span> 比赛信息，含实时比分、赛程详情、预测入口
             </p>
             <div className="text-center mb-4">
               <span className="text-3xl font-black text-cyan-400 font-mono">￥39.9</span>
-              <span className="text-xs text-slate-500 ml-1">/ 5次</span>
+              <span className="text-xs text-slate-500 ml-1">/ 1次</span>
             </div>
             <button
-              onClick={() => { addCredits(5); setShowPayModal(false); }}
+              onClick={() => { addCredits(1); setShowPayModal(false); }}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-600 text-slate-950 font-bold text-sm cursor-pointer active:scale-[0.98]"
             >
               <CreditCard size={16} />
@@ -75,7 +75,7 @@ export function MatchesPage() {
       {!isUnlocked && (
         <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-500/5 border border-amber-500/10 text-amber-400/80 text-xs">
           <Lock size={13} />
-          付费解锁后可查看实时比分与赛事详情 · ￥39.9 / 5次
+          付费解锁后可查看实时比分与赛事详情 · ￥39.9 / 1次
         </div>
       )}
 

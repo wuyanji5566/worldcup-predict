@@ -106,7 +106,7 @@ export function AnalysisPage() {
           <p className="text-xs md:text-sm text-slate-400 mt-0.5 ml-10">
             {today} · {todayMatches.length} 场比赛 · 数据定时更新
             {credits > 0 && <span className="ml-2 px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px]">剩余 {credits} 次</span>}
-            {!isUnlocked && <span className="ml-2 text-amber-400 text-[10px]">· 付费解锁 ￥39.9/5次</span>}
+            {!isUnlocked && <span className="ml-2 text-amber-400 text-[10px]">· 付费解锁 ￥39.9/1次</span>}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -155,20 +155,20 @@ export function AnalysisPage() {
           <div className="relative w-full max-w-sm bg-slate-900 border border-slate-700/50 rounded-2xl p-6 animate-fade-up" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-base font-bold text-white mb-2">解锁概率分析</h3>
             <p className="text-xs text-slate-400 mb-4">
-              付费一次解锁 <span className="text-cyan-400 font-bold">5 条</span> 分析内容，含胜平负概率矩阵 + 麦肯锡量化洞察
+              付费一次解锁 <span className="text-cyan-400 font-bold">1 条</span> 分析内容，含胜平负概率矩阵 + 麦肯锡量化洞察
             </p>
             <div className="text-center mb-4">
               <span className="text-3xl font-black text-cyan-400 font-mono">￥39.9</span>
-              <span className="text-xs text-slate-500 ml-1">/ 5次</span>
+              <span className="text-xs text-slate-500 ml-1">/ 1次</span>
             </div>
             <button
-              onClick={() => { addCredits(5); setModalOpen(false); }}
+              onClick={() => { addCredits(1); setModalOpen(false); }}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-600 text-slate-950 font-bold text-sm cursor-pointer active:scale-[0.98]"
             >
               <CreditCard size={16} />
               确认支付 ￥39.90
             </button>
-            <p className="text-[10px] text-slate-600 text-center mt-2">模拟支付 · 点击即解锁 · 剩余 {credits + 5} 次可用</p>
+            <p className="text-[10px] text-slate-600 text-center mt-2">模拟支付 · 点击即解锁 · 已解锁 1 次</p>
           </div>
         </div>
       )}
