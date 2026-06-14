@@ -1,8 +1,9 @@
 import { Target, CircleCheck } from 'lucide-react'
 import { cn } from '@/utils/cn'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import { useLeaderboard } from '@/hooks/useLeaderboard'
 
-const players = [
+const fallbackPlayers = [
   { rank: 1, name: '足球预言家', points: 248, exact: 18, correct: 42, accuracy: 0.62 },
   { rank: 2, name: '梅西铁粉', points: 231, exact: 15, correct: 45, accuracy: 0.58 },
   { rank: 3, name: 'C罗无敌', points: 225, exact: 16, correct: 40, accuracy: 0.56 },
@@ -15,15 +16,42 @@ const players = [
 
 const medals = ['🥇', '🥈', '🥉']
 
+interface Player {
+  rank: number
+  name: string
+  points: number
+  exact: number
+  correct: number
+  accuracy: number
+}
+
 export function LeaderboardPage() {
+  const { entries } = useLeaderboard()
   const [activeTab, setActiveTab] = useState<'table' | 'cards'>('table')
+
+  // Map real entries to display format, fallback to demo data
+  const players: Player[] = useMemo(() => {
+    if (entries.length > 0) {
+      return entries.map((e) => ({
+        rank: e.rank,
+        name: e.displayName || e.username || `玩家${e.rank}`,
+        points: e.totalPoints,
+        exact: e.exactScores,
+        correct: e.correctOutcomes,
+        accuracy: e.accuracy,
+      }))
+    }
+    return fallbackPlayers
+  }, [entries])
 
   return (
     <div className="space-y-4 md:space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-text-primary tracking-tight">排行榜</h1>
-          <p className="text-xs md:text-sm text-text-secondary mt-1">全球预测玩家排名</p>
+          <p className="text-xs md:text-sm text-text-secondary mt-1">
+            {entries.length > 0 ? `${entries.length} 名预测玩家` : '全球预测玩家排名'}
+          </p>
         </div>
         {/* Mobile view toggle */}
         <div className="flex md:hidden bg-surface-2 rounded-xl p-0.5 border border-border-default">
@@ -49,37 +77,39 @@ export function LeaderboardPage() {
       </div>
 
       {/* Top 3 Podium */}
-      <div className="grid grid-cols-3 gap-2 md:gap-3">
-        {players.slice(0, 3).map((player) => {
-          const podiumOrder = player.rank === 1 ? 1 : player.rank === 2 ? 0 : 2
-          const heights = ['h-24 md:h-28', 'h-32 md:h-36', 'h-20 md:h-24']
-          const bgAccents = ['bg-gold/5 border-gold/20', 'bg-accent/5 border-accent/20', 'bg-surface-3 border-border-default']
-          return (
-            <div
-              key={player.name}
-              className={cn(
-                'flex flex-col items-center justify-end rounded-2xl border p-3 md:p-4',
-                heights[podiumOrder],
-                bgAccents[podiumOrder],
-              )}
-              style={{ order: podiumOrder }}
-            >
-              <span className="text-2xl md:text-3xl mb-1">{medals[player.rank - 1]}</span>
-              <span className="text-[10px] md:text-xs font-semibold text-text-primary text-center truncate w-full">
-                {player.name}
-              </span>
-              <span className="text-xs md:text-sm font-bold text-gold font-mono mt-0.5">{player.points}分</span>
-            </div>
-          )
-        })}
-      </div>
+      {players.length >= 3 && (
+        <div className="grid grid-cols-3 gap-2 md:gap-3">
+          {players.slice(0, 3).map((player) => {
+            const podiumOrder = player.rank === 1 ? 1 : player.rank === 2 ? 0 : 2
+            const heights = ['h-24 md:h-28', 'h-32 md:h-36', 'h-20 md:h-24']
+            const bgAccents = ['bg-gold/5 border-gold/20', 'bg-accent/5 border-accent/20', 'bg-surface-3 border-border-default']
+            return (
+              <div
+                key={player.name}
+                className={cn(
+                  'flex flex-col items-center justify-end rounded-2xl border p-3 md:p-4',
+                  heights[podiumOrder],
+                  bgAccents[podiumOrder],
+                )}
+                style={{ order: podiumOrder }}
+              >
+                <span className="text-2xl md:text-3xl mb-1">{medals[player.rank - 1]}</span>
+                <span className="text-[10px] md:text-xs font-semibold text-text-primary text-center truncate w-full">
+                  {player.name}
+                </span>
+                <span className="text-xs md:text-sm font-bold text-gold font-mono mt-0.5">{player.points}分</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Full Table — horizontally scrollable on mobile */}
       <div className={cn(
         'bg-surface-2 border border-border-default rounded-2xl overflow-hidden',
-        activeTab === 'cards' && 'md:block hidden',
+        activeTab === 'cards' && 'hidden md:block',
       )}>
-        <div className="overflow-x-auto -mx-4 md:mx-0">
+        <div className="overflow-x-auto">
           <div className="min-w-[560px] md:min-w-0">
             {/* Header */}
             <div className="grid grid-cols-12 gap-2 px-4 md:px-5 py-3 border-b border-border-default text-[10px] font-bold uppercase tracking-[0.1em] text-text-tertiary bg-surface-3/50">

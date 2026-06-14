@@ -1,5 +1,5 @@
 // ============================================================
-// Live Match Sync Engine — Mock Simulator + Zustand Store
+// Live Match Sync Engine — Simulation + Real API Polling
 // ============================================================
 
 import { create } from 'zustand'
@@ -9,19 +9,40 @@ import type {
   ProbabilitySnapshot, SimulatorConfig,
 } from './liveTypes'
 import { createSnapshot, recalculateProbabilities } from './liveEngine'
+import { fetchLiveMatches } from './realSportsApi'
+import type { CachedMatch } from '@/types/match'
 
-// ---- June 14 Match Data ----
-const MATCH_DATA = {
-  matchId: 'j14-m1',
+// ---- Player name pools for simulation ----
+const PLAYER_POOLS: Record<string, string[]> = {
+  Scotland: ['McGinn', 'McTominay', 'Robertson', 'Adams', 'Christie', 'Gilmour'],
+  Haiti: ['Nazon', 'Pierrot', 'Antoine', 'Lafrance', 'Arcus', 'Placide'],
+  Brazil: ['Vinicius', 'Rodrygo', 'Raphinha', 'Paqueta', 'Guimaraes', 'Marquinhos'],
+  Morocco: ['Hakimi', 'En-Nesyri', 'Ziyech', 'Amrabat', 'Boufal', 'Saiss'],
+  Qatar: ['Afif', 'Ali', 'Al-Haydos', 'Boudiaf', 'Khoukhi', 'Barsham'],
+  Switzerland: ['Shaqiri', 'Embolo', 'Akanji', 'Xhaka', 'Freuler', 'Sommer'],
+  Australia: ['Souttar', 'McGree', 'Duke', 'Irvine', 'Behich', 'Ryan'],
+  Turkey: ['Calhanoglu', 'Guler', 'Yilmaz', 'Akturkoglu', 'Demiral', 'Gunok'],
+  Italy: ['Barella', 'Chiesa', 'Donnarumma', 'Bastoni', 'Tonali', 'Retegui'],
+  Ghana: ['Kudus', 'Partey', 'Williams', 'Salisu', 'Ayew', 'Ati-Zigi'],
+  USA: ['Pulisic', 'McKennie', 'Reyna', 'Adams', 'Robinson', 'Turner'],
+  Tunisia: ['Khazri', 'Msakni', 'Jaziri', 'Sassi', 'Bronn', 'Dahmen'],
+}
+
+function getPlayerPool(teamName: string): string[] {
+  for (const [key, players] of Object.entries(PLAYER_POOLS)) {
+    if (teamName.includes(key) || key.includes(teamName)) return players
+  }
+  return [`${teamName}-1`, `${teamName}-2`, `${teamName}-3`, `${teamName}-4`, `${teamName}-5`, `${teamName}-6`]
+}
+
+// ---- Default match data (fallback if store has no live matches) ----
+const DEFAULT_MATCH = {
+  matchId: 'default-live',
   homeTeam: { name: 'Haiti', flag: '🇭🇹', nameZh: '海地' },
   awayTeam: { name: 'Scotland', flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', nameZh: '苏格兰' },
   kickoffTime: new Date('2026-06-14T10:00:00Z').getTime(),
   baselineProbs: { homeWin: 6, draw: 12, awayWin: 82 },
 }
-
-// ---- Player name pools ----
-const SCOTLAND_PLAYERS = ['McGinn', 'McTominay', 'Robertson', 'Adams', 'Christie', 'Gilmour']
-const HAITI_PLAYERS = ['Nazon', 'Pierrot', 'Antoine', 'Lafrance', 'Arcus', 'Placide']
 
 // ---- Live Sync Store ----
 interface LiveSyncStore {
@@ -33,21 +54,24 @@ interface LiveSyncStore {
   startSimulation: (config?: Partial<SimulatorConfig>) => void
   stopSimulation: () => void
   resetSimulation: () => void
+  /** Update match identity from real data */
+  setMatchFromReal: (realMatch: CachedMatch, baseline?: { h: number; d: number; a: number }) => void
 }
 
 let _intervalId: ReturnType<typeof setInterval> | null = null
+let _pollIntervalId: ReturnType<typeof setInterval> | null = null
 
 function createInitialMatch(): LiveMatch {
   return {
-    matchId: MATCH_DATA.matchId,
+    matchId: DEFAULT_MATCH.matchId,
     status: 'UPCOMING',
-    homeTeam: MATCH_DATA.homeTeam,
-    awayTeam: MATCH_DATA.awayTeam,
+    homeTeam: DEFAULT_MATCH.homeTeam,
+    awayTeam: DEFAULT_MATCH.awayTeam,
     liveScore: { home: 0, away: 0 },
     currentMinute: 0,
     stoppageTime: 0,
     liveEvents: [],
-    kickoffTime: MATCH_DATA.kickoffTime,
+    kickoffTime: DEFAULT_MATCH.kickoffTime,
     startedAt: null,
     lastUpdated: Date.now(),
   }
@@ -56,24 +80,51 @@ function createInitialMatch(): LiveMatch {
 export const useLiveSyncStore = create<LiveSyncStore>((set, get) => ({
   match: createInitialMatch(),
   probability: createSnapshot(
-    MATCH_DATA.baselineProbs.homeWin,
-    MATCH_DATA.baselineProbs.draw,
-    MATCH_DATA.baselineProbs.awayWin,
+    DEFAULT_MATCH.baselineProbs.homeWin,
+    DEFAULT_MATCH.baselineProbs.draw,
+    DEFAULT_MATCH.baselineProbs.awayWin,
   ),
   isRunning: false,
   tickCount: 0,
   isLive: false,
 
+  setMatchFromReal: (realMatch, baseline) => {
+    const bp = baseline ?? { h: 33, d: 34, a: 33 }
+    const m: LiveMatch = {
+      matchId: realMatch.id,
+      status: realMatch.status === 'live' ? 'LIVE' : realMatch.status === 'finished' ? 'FINISHED' : 'UPCOMING',
+      homeTeam: { name: realMatch.homeTeam, flag: '⚽', nameZh: realMatch.homeTeam },
+      awayTeam: { name: realMatch.awayTeam, flag: '⚽', nameZh: realMatch.awayTeam },
+      liveScore: { home: realMatch.homeScore ?? 0, away: realMatch.awayScore ?? 0 },
+      currentMinute: 0,
+      stoppageTime: 0,
+      liveEvents: [],
+      kickoffTime: new Date(`${realMatch.date}T${realMatch.time}:00`).getTime(),
+      startedAt: realMatch.status === 'live' ? Date.now() : null,
+      lastUpdated: Date.now(),
+    }
+    const snap = createSnapshot(bp.h, bp.d, bp.a)
+    // Stop any existing simulation when switching matches
+    if (_intervalId) { clearInterval(_intervalId); _intervalId = null }
+    set({ match: m, probability: snap, isRunning: false, tickCount: 0, isLive: realMatch.status === 'live' })
+  },
+
   startSimulation: (config) => {
     if (_intervalId) return
 
+    const state = get()
+    const matchData = state.match
+
     const cfg: SimulatorConfig = {
-      matchId: MATCH_DATA.matchId,
+      matchId: matchData.matchId,
       intervalMs: config?.intervalMs ?? 10000,
       goalChancePerTick: config?.goalChancePerTick ?? 0.15,
       cardChancePerTick: config?.cardChancePerTick ?? 0.08,
       autoStart: true,
     }
+
+    const homePool = getPlayerPool(matchData.homeTeam.name)
+    const awayPool = getPlayerPool(matchData.awayTeam.name)
 
     // Auto-start: switch to LIVE
     set((s) => {
@@ -85,6 +136,45 @@ export const useLiveSyncStore = create<LiveSyncStore>((set, get) => ({
       return { match: m, isRunning: true, isLive: true, tickCount: 0 }
     })
 
+    // --- Real API polling (background) ---
+    if (_pollIntervalId) clearInterval(_pollIntervalId)
+    _pollIntervalId = setInterval(async () => {
+      try {
+        const liveMatches = await fetchLiveMatches()
+        const current = liveMatches.find((rm) => rm.id === matchData.matchId)
+        if (current && current.homeScore != null) {
+          const s = get()
+          const m = { ...s.match }
+          const hadGoal = m.liveScore.home !== current.homeScore || m.liveScore.away !== (current.awayScore ?? 0)
+          m.liveScore.home = current.homeScore
+          m.liveScore.away = current.awayScore ?? 0
+          m.lastUpdated = Date.now()
+          if (current.status === 'finished') m.status = 'FINISHED'
+          if (hadGoal) {
+            m.liveEvents = [{
+              id: nanoid(8),
+              minute: m.currentMinute,
+              type: 'GOAL',
+              team: 'home',
+              player: '球员',
+              description: `⚽ 比分更新: ${current.homeScore}-${current.awayScore}`,
+              timestamp: Date.now(),
+            }, ...m.liveEvents]
+          }
+          const prob = recalculateProbabilities({
+            ...s.probability,
+            goalsHome: m.liveScore.home,
+            goalsAway: m.liveScore.away,
+            minutesPlayed: m.currentMinute,
+            lastEvent: m.liveEvents[0]?.description ?? '实时数据同步',
+          })
+          set({ match: m, probability: prob })
+          if (m.status === 'FINISHED') { const { stopSimulation } = get(); stopSimulation() }
+        }
+      } catch { /* Real API not available, use simulation */ }
+    }, 30000) // Poll real API every 30s
+
+    // --- Simulation ticker ---
     _intervalId = setInterval(() => {
       const state = get()
       const m = { ...state.match }
@@ -111,20 +201,21 @@ export const useLiveSyncStore = create<LiveSyncStore>((set, get) => ({
       let team: 'home' | 'away' = 'away'
       let player = ''
 
+      // Goal bias: stronger team scores more
+      const probHomeWin = state.probability.live.homeWin / 100
       if (roll < cfg.goalChancePerTick) {
-        // Goal — Scotland stronger (82% win prob), so bias toward them
-        team = Math.random() < 0.82 ? 'away' : 'home'
+        team = Math.random() < probHomeWin ? 'home' : 'away'
         eventType = 'GOAL'
-        player = team === 'away'
-          ? SCOTLAND_PLAYERS[Math.floor(Math.random() * SCOTLAND_PLAYERS.length)]
-          : HAITI_PLAYERS[Math.floor(Math.random() * HAITI_PLAYERS.length)]
-      } else if (roll < cfg.goalChancePerTick + cfg.cardChancePerTick) {
-        // Card — bias toward Haiti (weaker team more likely to foul)
-        team = Math.random() < 0.55 ? 'home' : 'away'
-        eventType = Math.random() < 0.3 ? 'RED_CARD' : 'YELLOW_CARD'
         player = team === 'home'
-          ? HAITI_PLAYERS[Math.floor(Math.random() * HAITI_PLAYERS.length)]
-          : SCOTLAND_PLAYERS[Math.floor(Math.random() * SCOTLAND_PLAYERS.length)]
+          ? homePool[Math.floor(Math.random() * homePool.length)]
+          : awayPool[Math.floor(Math.random() * awayPool.length)]
+      } else if (roll < cfg.goalChancePerTick + cfg.cardChancePerTick) {
+        // Card — weaker team more likely to foul
+        team = Math.random() < (1 - probHomeWin) * 0.7 + 0.15 ? 'home' : 'away'
+        eventType = Math.random() < 0.25 ? 'RED_CARD' : 'YELLOW_CARD'
+        player = team === 'home'
+          ? homePool[Math.floor(Math.random() * homePool.length)]
+          : awayPool[Math.floor(Math.random() * awayPool.length)]
       }
 
       if (eventType) {
@@ -135,7 +226,7 @@ export const useLiveSyncStore = create<LiveSyncStore>((set, get) => ({
           team,
           player,
           description: eventType === 'GOAL'
-            ? `⚽ ${player} 进球！${team === 'home' ? '海地' : '苏格兰'} ${m.liveScore.home + (team === 'home' ? 1 : 0)}-${m.liveScore.away + (team === 'away' ? 1 : 0)}`
+            ? `⚽ ${player} 进球！${team === 'home' ? m.homeTeam.nameZh : m.awayTeam.nameZh} ${m.liveScore.home + (team === 'home' ? 1 : 0)}-${m.liveScore.away + (team === 'away' ? 1 : 0)}`
             : eventType === 'RED_CARD'
               ? `🟥 ${player} 被红牌罚下！`
               : `🟨 ${player} 吃到黄牌`,
@@ -184,6 +275,7 @@ export const useLiveSyncStore = create<LiveSyncStore>((set, get) => ({
 
   stopSimulation: () => {
     if (_intervalId) { clearInterval(_intervalId); _intervalId = null }
+    if (_pollIntervalId) { clearInterval(_pollIntervalId); _pollIntervalId = null }
     set((s) => ({
       isRunning: false,
       match: { ...s.match, status: s.match.status === 'LIVE' || s.match.status === 'HT' ? 'FINISHED' : s.match.status },
@@ -192,12 +284,23 @@ export const useLiveSyncStore = create<LiveSyncStore>((set, get) => ({
 
   resetSimulation: () => {
     if (_intervalId) { clearInterval(_intervalId); _intervalId = null }
+    if (_pollIntervalId) { clearInterval(_pollIntervalId); _pollIntervalId = null }
+    const state = get()
     set({
-      match: createInitialMatch(),
+      match: {
+        ...state.match,
+        status: 'UPCOMING',
+        liveScore: { home: 0, away: 0 },
+        currentMinute: 0,
+        stoppageTime: 0,
+        liveEvents: [],
+        startedAt: null,
+        lastUpdated: Date.now(),
+      },
       probability: createSnapshot(
-        MATCH_DATA.baselineProbs.homeWin,
-        MATCH_DATA.baselineProbs.draw,
-        MATCH_DATA.baselineProbs.awayWin,
+        state.probability.baseline.homeWin,
+        state.probability.baseline.draw,
+        state.probability.baseline.awayWin,
       ),
       isRunning: false,
       tickCount: 0,
