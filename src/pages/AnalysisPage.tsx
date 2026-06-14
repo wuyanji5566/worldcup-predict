@@ -1,29 +1,12 @@
-import { useState, useCallback, useMemo } from 'react'
-import { CalendarDays, BarChart3, Sparkles, Unlock, Crown, TrendingUp } from 'lucide-react'
-import { cn } from '@/utils/cn'
+import { useState, useMemo } from 'react'
+import { CalendarDays, BarChart3, Sparkles, Unlock, Lock, TrendingUp, CreditCard } from 'lucide-react'
 import { ProbabilityTable } from '@/components/analysis/ProbabilityTable'
 import { McKinseyPanel } from '@/components/analysis/McKinseyPanel'
 import { PaywallOverlay } from '@/components/analysis/PaywallOverlay'
-import { UnlockModal } from '@/components/analysis/UnlockModal'
-import { useUIStore } from '@/store/uiStore'
-import { getItem, setItem } from '@/utils/storage'
+import { useUnlock } from '@/hooks/useUnlock'
 import { useMatches } from '@/hooks/useMatches'
 import type { MatchProbability, McKinseyInsight } from '@/data/analysisData'
 import { TEAM_NAMES_ZH, TEAM_FLAGS } from '@/utils/constants'
-
-// Single unlock: keyed by date, expires next day
-const getSingleKey = () => `predict_unlock_${new Date().toISOString().split('T')[0]}`
-const MEMBER_KEY = 'predict_unlock_member'
-
-function loadUnlockStatus(): 'single' | 'member' | null {
-  const member = getItem<string | null>(MEMBER_KEY, null)
-  if (member === 'member') return 'member'
-  const single = getItem<string | null>(getSingleKey(), null)
-  if (single === 'single') return 'single'
-  return null
-}
-
-type PurchasePlan = 'single' | 'member' | null
 
 const TEAM_STRENGTH: Record<string, { elo: number; tier: number }> = {
   Argentina: { elo: 92, tier: 1 }, Brazil: { elo: 91, tier: 1 }, France: { elo: 90, tier: 1 },
@@ -88,13 +71,9 @@ function generateInsights(matches: MatchProbability[]): McKinseyInsight[] {
 }
 
 export function AnalysisPage() {
-  const [unlockedPlan, setUnlockedPlan] = useState<PurchasePlan>(loadUnlockStatus)
+  const { credits, isUnlocked, addCredits } = useUnlock()
   const [modalOpen, setModalOpen] = useState(false)
-  const addToast = useUIStore((s) => s.addToast)
   const { matches } = useMatches()
-
-  const isUnlocked = unlockedPlan !== null
-  const isMember = unlockedPlan === 'member'
 
   const today = useMemo(() => { const d = new Date(); return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日` }, [])
 
@@ -113,13 +92,6 @@ export function AnalysisPage() {
 
   const insights = useMemo(() => generateInsights(todayMatches), [todayMatches])
 
-  const handleOpenModal = useCallback(() => setModalOpen(true), [])
-  const handleCloseModal = useCallback(() => setModalOpen(false), [])
-  const handlePurchase = useCallback((plan: 'single' | 'member') => {
-    setUnlockedPlan(plan); setModalOpen(false)
-    if (plan === 'member') { setItem(MEMBER_KEY, 'member'); addToast('🔥 黑金会员已激活 · 全赛程解锁', 'success') }
-    else { setItem(getSingleKey(), 'single'); addToast(`✅ 今日解锁成功 · ￥39.9 · ${today} 有效`, 'success') }
-  }, [addToast, today])
 
   return (
     <div className="space-y-5 md:space-y-6 animate-fade-in max-w-5xl mx-auto">
@@ -133,19 +105,18 @@ export function AnalysisPage() {
           </div>
           <p className="text-xs md:text-sm text-slate-400 mt-0.5 ml-10">
             {today} · {todayMatches.length} 场比赛 · 数据定时更新
-            {!isUnlocked && <span className="ml-2 text-amber-400 text-[10px]">· 付费解锁完整分析</span>}
+            {credits > 0 && <span className="ml-2 px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px]">剩余 {credits} 次</span>}
+            {!isUnlocked && <span className="ml-2 text-amber-400 text-[10px]">· 付费解锁 ￥39.9/5次</span>}
           </p>
         </div>
         <div className="flex items-center gap-3">
           {isUnlocked ? (
-            <div className={cn('flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold',
-              isMember ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400')}>
-              {isMember ? <Crown size={13} /> : <Unlock size={13} />}
-              {isMember ? '黑金会员' : '今日已解锁'}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-xs font-bold text-cyan-400">
+              <Unlock size={13} />已解锁
             </div>
           ) : (
-            <button onClick={handleOpenModal} className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-xs font-bold text-cyan-400 hover:bg-cyan-500/20 transition-all cursor-pointer">
-              <Unlock size={13} />解锁完整分析
+            <button onClick={() => setModalOpen(true)} className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-xs font-bold text-amber-400 hover:bg-amber-500/20 transition-all cursor-pointer">
+              <Lock size={13} />付费解锁
             </button>
           )}
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20">
@@ -173,11 +144,34 @@ export function AnalysisPage() {
         )}
       </div>
 
-      <PaywallOverlay blurred={!isUnlocked} onUnlock={handleOpenModal} label="解锁量化智能大脑" variant="full">
+      <PaywallOverlay blurred={!isUnlocked} onUnlock={() => setModalOpen(true)} label="解锁量化智能大脑" variant="full">
         <McKinseyPanel insights={insights} />
       </PaywallOverlay>
 
-      <UnlockModal open={modalOpen} onClose={handleCloseModal} onPurchase={handlePurchase} />
+      {/* Payment Modal */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setModalOpen(false)}>
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+          <div className="relative w-full max-w-sm bg-slate-900 border border-slate-700/50 rounded-2xl p-6 animate-fade-up" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-white mb-2">解锁概率分析</h3>
+            <p className="text-xs text-slate-400 mb-4">
+              付费一次解锁 <span className="text-cyan-400 font-bold">5 条</span> 分析内容，含胜平负概率矩阵 + 麦肯锡量化洞察
+            </p>
+            <div className="text-center mb-4">
+              <span className="text-3xl font-black text-cyan-400 font-mono">￥39.9</span>
+              <span className="text-xs text-slate-500 ml-1">/ 5次</span>
+            </div>
+            <button
+              onClick={() => { addCredits(5); setModalOpen(false); }}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-600 text-slate-950 font-bold text-sm cursor-pointer active:scale-[0.98]"
+            >
+              <CreditCard size={16} />
+              确认支付 ￥39.90
+            </button>
+            <p className="text-[10px] text-slate-600 text-center mt-2">模拟支付 · 点击即解锁 · 剩余 {credits + 5} 次可用</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

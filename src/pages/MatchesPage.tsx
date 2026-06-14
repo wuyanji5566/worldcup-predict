@@ -1,13 +1,16 @@
-import { MapPin, Clock, AlertCircle, RefreshCw } from 'lucide-react'
+import { MapPin, Clock, AlertCircle, RefreshCw, Lock, CreditCard } from 'lucide-react'
 import type { CachedMatch } from '@/types/match'
 import { TEAM_FLAGS, TEAM_NAMES_ZH, STAGE_LABELS, STADIUMS } from '@/utils/constants'
 import { useMatches } from '@/hooks/useMatches'
+import { useUnlock } from '@/hooks/useUnlock'
 import { useState } from 'react'
 import { cn } from '@/utils/cn'
 
 export function MatchesPage() {
   const { matches, liveMatches, upcomingMatches, finishedMatches, isLoading, error, refresh } = useMatches()
+  const { credits, isUnlocked, addCredits } = useUnlock()
   const [filter, setFilter] = useState<'all' | 'live' | 'scheduled' | 'finished'>('all')
+  const [showPayModal, setShowPayModal] = useState(false)
 
   const filtered = filter === 'all' ? matches
     : filter === 'live' ? liveMatches
@@ -23,22 +26,58 @@ export function MatchesPage() {
 
   return (
     <div className="space-y-4 md:space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-text-primary tracking-tight">赛事预测</h1>
           <p className="text-xs md:text-sm text-text-secondary mt-1">
             {isLoading ? '加载中...' : `${matches.length} 场比赛`}
+            {credits > 0 && <span className="ml-2 px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px]">剩余 {credits} 次</span>}
           </p>
         </div>
-        <button
-          onClick={refresh}
-          disabled={isLoading}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-2 border border-border-default text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer disabled:opacity-50"
-        >
-          <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
-          刷新
-        </button>
+        <div className="flex items-center gap-2">
+          {!isUnlocked && (
+            <button onClick={() => setShowPayModal(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs font-bold text-amber-400 hover:bg-amber-500/20 transition-all cursor-pointer">
+              <Lock size={13} />付费解锁
+            </button>
+          )}
+          <button onClick={refresh} disabled={isLoading} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-2 border border-border-default text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer disabled:opacity-50">
+            <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
+
+      {/* Pay Modal */}
+      {showPayModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowPayModal(false)}>
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+          <div className="relative w-full max-w-sm bg-slate-900 border border-slate-700/50 rounded-2xl p-6 animate-fade-up" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-white mb-2">解锁赛事预测</h3>
+            <p className="text-xs text-slate-400 mb-4">
+              付费一次解锁 <span className="text-cyan-400 font-bold">5 条</span> 比赛信息，含实时比分、赛程详情、预测入口
+            </p>
+            <div className="text-center mb-4">
+              <span className="text-3xl font-black text-cyan-400 font-mono">￥39.9</span>
+              <span className="text-xs text-slate-500 ml-1">/ 5次</span>
+            </div>
+            <button
+              onClick={() => { addCredits(5); setShowPayModal(false); }}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-600 text-slate-950 font-bold text-sm cursor-pointer active:scale-[0.98]"
+            >
+              <CreditCard size={16} />
+              确认支付 ￥39.90
+            </button>
+            <p className="text-[10px] text-slate-600 text-center mt-2">模拟支付 · 点击即解锁</p>
+          </div>
+        </div>
+      )}
+
+      {/* Locked overlay hint */}
+      {!isUnlocked && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-500/5 border border-amber-500/10 text-amber-400/80 text-xs">
+          <Lock size={13} />
+          付费解锁后可查看实时比分与赛事详情 · ￥39.9 / 5次
+        </div>
+      )}
 
       {/* Error banner */}
       {error && (
@@ -93,14 +132,14 @@ export function MatchesPage() {
       {/* Match list */}
       <div className="space-y-3">
         {filtered.map((match) => (
-          <MatchRow key={match.id} match={match} />
+          <MatchRow key={match.id} match={match} locked={!isUnlocked} />
         ))}
       </div>
     </div>
   )
 }
 
-function MatchRow({ match }: { match: CachedMatch }) {
+function MatchRow({ match, locked }: { match: CachedMatch; locked: boolean }) {
   const isLive = match.status === 'live'
   const homeFlag = TEAM_FLAGS[match.homeTeam] ?? '🏳️'
   const awayFlag = TEAM_FLAGS[match.awayTeam] ?? '🏳️'
@@ -152,7 +191,9 @@ function MatchRow({ match }: { match: CachedMatch }) {
         </div>
 
         <div className="px-3 md:px-5 shrink-0">
-          {isLive || match.status === 'finished' ? (
+          {locked ? (
+            <span className="text-lg font-bold text-slate-600">🔒</span>
+          ) : isLive || match.status === 'finished' ? (
             <div className={cn(
               'flex items-center gap-2 px-3 md:px-4 py-1.5 rounded-xl border',
               isLive ? 'bg-live/5 border-live/10' : 'bg-surface-3 border-border-default',
@@ -183,12 +224,18 @@ function MatchRow({ match }: { match: CachedMatch }) {
           <MapPin size={11} />
           {(STADIUMS[match.stadium] ?? match.stadium) || '待定'}
         </span>
-        <a
-          href={`#/matches/${match.id}`}
-          className="text-[12px] font-medium text-accent hover:text-cyan-400 transition-colors no-underline"
-        >
-          预测比分 →
-        </a>
+        {locked ? (
+          <span className="text-[12px] font-medium text-amber-400/60 flex items-center gap-1">
+            <Lock size={10} />付费查看
+          </span>
+        ) : (
+          <a
+            href={`#/matches/${match.id}`}
+            className="text-[12px] font-medium text-accent hover:text-cyan-400 transition-colors no-underline"
+          >
+            预测比分 →
+          </a>
+        )}
       </div>
     </div>
   )

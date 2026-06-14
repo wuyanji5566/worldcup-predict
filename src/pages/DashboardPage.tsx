@@ -79,10 +79,10 @@ export function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-text-primary tracking-tight">
-            仪表盘
+            今日实时比赛数据
           </h1>
           <p className="text-xs md:text-sm text-text-secondary mt-0.5">
-            {isLoading ? '加载中...' : '2026 世界杯实时概览'}
+            {isLoading ? '加载中...' : '2026 世界杯实时概览 · 数据自动更新'}
             <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${
               dataSource.includes('ESPN') ? 'bg-emerald-500/10 text-emerald-400' :
               dataSource.includes('模拟') ? 'bg-red-500/10 text-red-400' :
