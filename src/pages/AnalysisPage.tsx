@@ -9,6 +9,7 @@ import { useUIStore } from '@/store/uiStore'
 import { getItem, setItem } from '@/utils/storage'
 import { useMatches } from '@/hooks/useMatches'
 import type { MatchProbability, McKinseyInsight } from '@/data/analysisData'
+import { TEAM_NAMES_ZH, TEAM_FLAGS } from '@/utils/constants'
 
 const PAYMENT_STORAGE_KEY = 'predict_terminal_unlocked_0614'
 
@@ -168,8 +169,11 @@ export function AnalysisPage() {
         return tomorrowData.map((m) => {
           const probs = computeProbabilities(m.homeTeam, m.awayTeam)
           return {
-            id: m.id, homeTeam: m.homeTeam, homeFlag: '⚽',
-            awayTeam: m.awayTeam, awayFlag: '⚽',
+            id: m.id,
+            homeTeam: TEAM_NAMES_ZH[m.homeTeam] ?? m.homeTeam,
+            homeFlag: TEAM_FLAGS[m.homeTeam] ?? '⚽',
+            awayTeam: TEAM_NAMES_ZH[m.awayTeam] ?? m.awayTeam,
+            awayFlag: TEAM_FLAGS[m.awayTeam] ?? '⚽',
             ...probs,
             kickoff: m.time, venue: m.stadium || '待定', group: m.group ? `${m.group}组` : '',
           }
@@ -181,8 +185,11 @@ export function AnalysisPage() {
         return upcoming.map((m) => {
           const probs = computeProbabilities(m.homeTeam, m.awayTeam)
           return {
-            id: m.id, homeTeam: m.homeTeam, homeFlag: '⚽',
-            awayTeam: m.awayTeam, awayFlag: '⚽',
+            id: m.id,
+            homeTeam: TEAM_NAMES_ZH[m.homeTeam] ?? m.homeTeam,
+            homeFlag: TEAM_FLAGS[m.homeTeam] ?? '⚽',
+            awayTeam: TEAM_NAMES_ZH[m.awayTeam] ?? m.awayTeam,
+            awayFlag: TEAM_FLAGS[m.awayTeam] ?? '⚽',
             ...probs,
             kickoff: `${m.date} ${m.time}`, venue: m.stadium || '待定', group: m.group ? `${m.group}组` : '',
           }
@@ -193,8 +200,11 @@ export function AnalysisPage() {
     return todayData.map((m) => {
       const probs = computeProbabilities(m.homeTeam, m.awayTeam)
       return {
-        id: m.id, homeTeam: m.homeTeam, homeFlag: '⚽',
-        awayTeam: m.awayTeam, awayFlag: '⚽',
+        id: m.id,
+        homeTeam: TEAM_NAMES_ZH[m.homeTeam] ?? m.homeTeam,
+        homeFlag: TEAM_FLAGS[m.homeTeam] ?? '⚽',
+        awayTeam: TEAM_NAMES_ZH[m.awayTeam] ?? m.awayTeam,
+        awayFlag: TEAM_FLAGS[m.awayTeam] ?? '⚽',
         ...probs,
         kickoff: m.time, venue: m.stadium || '待定', group: m.group ? `${m.group}组` : '',
       }
