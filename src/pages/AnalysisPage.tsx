@@ -11,7 +11,17 @@ import { useMatches } from '@/hooks/useMatches'
 import type { MatchProbability, McKinseyInsight } from '@/data/analysisData'
 import { TEAM_NAMES_ZH, TEAM_FLAGS } from '@/utils/constants'
 
-const PAYMENT_STORAGE_KEY = 'predict_terminal_unlocked_0614'
+// Single unlock: keyed by date, expires at midnight
+const getSingleKey = () => `predict_unlock_${new Date().toISOString().split('T')[0]}`
+const MEMBER_KEY = 'predict_unlock_member'
+
+function loadUnlockStatus(): 'single' | 'member' | null {
+  const member = getItem<string | null>(MEMBER_KEY, null)
+  if (member === 'member') return 'member'
+  const single = getItem<string | null>(getSingleKey(), null)
+  if (single === 'single') return 'single'
+  return null
+}
 
 type PurchasePlan = 'single' | 'member' | null
 
@@ -137,10 +147,7 @@ function generateInsights(matches: MatchProbability[]): McKinseyInsight[] {
 }
 
 export function AnalysisPage() {
-  const [unlockedPlan, setUnlockedPlan] = useState<PurchasePlan>(() => {
-    const saved = getItem<string | null>(PAYMENT_STORAGE_KEY, null)
-    return (saved === 'single' || saved === 'member') ? saved as PurchasePlan : null
-  })
+  const [unlockedPlan, setUnlockedPlan] = useState<PurchasePlan>(loadUnlockStatus)
   const [modalOpen, setModalOpen] = useState(false)
   const addToast = useUIStore((s) => s.addToast)
   const { matches, liveMatches } = useMatches()
@@ -220,13 +227,14 @@ export function AnalysisPage() {
   const handlePurchase = useCallback((plan: 'single' | 'member') => {
     setUnlockedPlan(plan)
     setModalOpen(false)
-    setItem(PAYMENT_STORAGE_KEY, plan)
     if (plan === 'member') {
-      addToast('🔥 黑金会员已激活，已为您接入高维量化流', 'success')
+      setItem(MEMBER_KEY, 'member')
+      addToast('🔥 黑金会员已激活 · 全赛程解锁 · 已为您接入高维量化流', 'success')
     } else {
-      addToast('支付成功，已为您接入高维量化流', 'success')
+      setItem(getSingleKey(), 'single')
+      addToast(`✅ 今日解锁成功 · ￥39.9 · ${today} 有效`, 'success')
     }
-  }, [addToast])
+  }, [addToast, today])
 
   const matchCount = todayMatches.length
   const liveCount = liveMatches.length
@@ -259,7 +267,7 @@ export function AnalysisPage() {
                 : 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400',
             )}>
               {isMember ? <Crown size={13} /> : <Unlock size={13} />}
-              {isMember ? '黑金会员' : '已解锁'}
+              {isMember ? '黑金会员' : `今日已解锁 · ￥39.9`}
             </div>
           ) : (
             <button
