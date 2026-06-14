@@ -19,8 +19,8 @@ const navSections = [
       { to: '/matches', icon: CalendarDays, label: '赛事预测' },
       { to: '/analysis', icon: BarChart3Icon, label: '概率分析' },
       { to: '/leaderboard', icon: Trophy, label: '排行榜' },
-      { to: '/bracket', icon: Swords, label: '淘汰赛' },
       { to: '/predictions', icon: Target, label: '我的预测' },
+      { to: '/bracket', icon: Swords, label: '淘汰赛' },
       { to: '/groups', icon: Flame, label: '小组积分' },
     ],
   },
@@ -122,16 +122,16 @@ function MobileBottomNav() {
   const mainTabs = [
     { to: '/', icon: Home, label: '首页' },
     { to: '/dashboard', icon: LayoutDashboard, label: '实时数据' },
-    { to: '/matches', icon: CalendarDays, label: '比赛' },
-    { to: '/leaderboard', icon: Trophy, label: '排行' },
+    { to: '/matches', icon: CalendarDays, label: '赛事预测' },
+    { to: '/analysis', icon: BarChart3Icon, label: '概率分析' },
     { to: '/more', icon: ChevronRight, label: '更多', isMore: true },
   ]
 
   const moreTabs = [
+    { to: '/leaderboard', icon: Trophy, label: '排行榜' },
     { to: '/predictions', icon: Target, label: '我的预测' },
     { to: '/bracket', icon: Swords, label: '淘汰赛' },
     { to: '/groups', icon: Flame, label: '小组积分' },
-    { to: '/analysis', icon: BarChart3Icon, label: '概率分析' },
     { to: '/rules', icon: Flame, label: '计分规则' },
     { to: '/profile', icon: UserCircle, label: '个人中心' },
   ]
