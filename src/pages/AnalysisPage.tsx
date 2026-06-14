@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { CalendarDays, BarChart3, Sparkles, Unlock, Lock, TrendingUp, CreditCard } from 'lucide-react'
+import { CalendarDays, BarChart3, Sparkles, Unlock, Lock, TrendingUp, CreditCard, QrCode } from 'lucide-react'
 import { ProbabilityTable } from '@/components/analysis/ProbabilityTable'
 import { McKinseyPanel } from '@/components/analysis/McKinseyPanel'
 import { PaywallOverlay } from '@/components/analysis/PaywallOverlay'
@@ -73,6 +73,7 @@ function generateInsights(matches: MatchProbability[]): McKinseyInsight[] {
 export function AnalysisPage() {
   const { credits, isUnlocked, addCredits } = useUnlock()
   const [modalOpen, setModalOpen] = useState(false)
+  const [showQR, setShowQR] = useState(false)
   const { matches } = useMatches()
 
   const today = useMemo(() => { const d = new Date(); return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日` }, [])
@@ -161,14 +162,30 @@ export function AnalysisPage() {
               <span className="text-3xl font-black text-cyan-400 font-mono">￥39.9</span>
               <span className="text-xs text-slate-500 ml-1">/ 1次</span>
             </div>
+
+            {/* QR Code Toggle */}
+            <button
+              onClick={() => setShowQR(!showQR)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 mb-3 rounded-xl bg-slate-800/40 border border-slate-700/30 text-[11px] text-slate-400 hover:text-slate-300 transition-all cursor-pointer"
+            >
+              <QrCode size={14} />
+              {showQR ? '收起收款码' : '微信扫码支付'}
+            </button>
+
+            {showQR && (
+              <div className="mb-4 p-4 rounded-xl bg-white flex items-center justify-center">
+                <img src="/wechat-pay.jpg" alt="微信收款码" className="w-48 h-48 object-contain rounded-lg" />
+              </div>
+            )}
+
             <button
               onClick={() => { addCredits(1); setModalOpen(false); }}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-600 text-slate-950 font-bold text-sm cursor-pointer active:scale-[0.98]"
             >
               <CreditCard size={16} />
-              确认支付 ￥39.90
+              我已完成支付
             </button>
-            <p className="text-[10px] text-slate-600 text-center mt-2">模拟支付 · 点击即解锁 · 已解锁 1 次</p>
+            <p className="text-[10px] text-slate-600 text-center mt-2">扫码支付后点击上方按钮解锁</p>
           </div>
         </div>
       )}
