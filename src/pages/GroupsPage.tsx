@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useMatchStore } from '@/store/matchStore'
-import { GROUPS, TEAM_FLAGS } from '@/utils/constants'
+import { GROUPS, TEAM_FLAGS, TEAM_NAMES_ZH } from '@/utils/constants'
 import { EmptyState } from '@/components/ui/EmptyState'
 import type { GroupStanding } from '@/types/match'
 
@@ -98,7 +98,7 @@ export function GroupsPage() {
                   <tr key={t.team} className={`border-b border-border/50 ${i < 2 ? 'bg-accent/5' : ''}`}>
                     <td className="py-2 pl-3">
                       <span className="mr-1">{(TEAM_FLAGS[t.team] ?? '🏳️')}</span>
-                      <span className="text-text">{t.team}</span>
+                      <span className="text-text">{TEAM_NAMES_ZH[t.team] ?? t.team}</span>
                     </td>
                     <td className="py-2 text-center text-text-muted">{t.played}</td>
                     <td className="py-2 text-center text-text-muted">{t.won}</td>

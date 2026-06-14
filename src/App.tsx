@@ -1,8 +1,9 @@
 import { HashRouter, Routes, Route } from 'react-router-dom'
-import { useEffect, lazy, Suspense } from 'react'
+import { useEffect, lazy, Suspense, useRef } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Spinner } from '@/components/ui/Spinner'
 import { initAuth } from '@/store/authStore'
+import { useMatchStore } from '@/store/matchStore'
 import { LiveDataProvider } from '@/context/LiveDataContext'
 
 const HomePage = lazy(() => import('@/pages/HomePage').then(m => ({ default: m.HomePage })))
@@ -27,9 +28,31 @@ function Loading() {
 }
 
 export default function App() {
+  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+
   useEffect(() => {
     initAuth()
     import('@/services/deepseekApi').then(m => m.loadDeepSeekConfig())
+
+    // Global auto-refresh: poll ESPN every 60s regardless of current page
+    // Wait for initial data load, then start polling
+    const startPolling = () => {
+      if (pollTimer.current) return
+      pollTimer.current = setInterval(() => {
+        useMatchStore.getState().pollLiveScores()
+      }, 60000)
+    }
+
+    // Start after 10s (give init time to complete)
+    const initTimer = setTimeout(startPolling, 10000)
+
+    return () => {
+      clearTimeout(initTimer)
+      if (pollTimer.current) {
+        clearInterval(pollTimer.current)
+        pollTimer.current = null
+      }
+    }
   }, [])
 
   return (
