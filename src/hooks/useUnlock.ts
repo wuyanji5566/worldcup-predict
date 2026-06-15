@@ -9,7 +9,9 @@ const DATE_KEY = 'predict_unlock_date'
 const MEMBER_KEY = 'predict_unlock_member'
 
 function today(): string {
-  return new Date().toISOString().split('T')[0]
+  // Use China timezone so daily credits reset at midnight Beijing time
+  return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }))
+    .toISOString().split('T')[0]
 }
 
 function initCredits(): number {

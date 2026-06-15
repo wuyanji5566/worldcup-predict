@@ -7,6 +7,7 @@ import { useUnlock } from '@/hooks/useUnlock'
 import { useMatches } from '@/hooks/useMatches'
 import type { MatchProbability, McKinseyInsight } from '@/data/analysisData'
 import { TEAM_NAMES_ZH, TEAM_FLAGS } from '@/utils/constants'
+import { formatMatchTimeCST } from '@/utils/time'
 
 const TEAM_STRENGTH: Record<string, { elo: number; tier: number }> = {
   Argentina: { elo: 92, tier: 1 }, Brazil: { elo: 91, tier: 1 }, France: { elo: 90, tier: 1 },
@@ -77,18 +78,47 @@ export function AnalysisPage() {
   const [plan, setPlan] = useState<'single' | 'member'>('single')
   const { matches } = useMatches()
 
-  const today = useMemo(() => { const d = new Date(); return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日` }, [])
+  const today = useMemo(() => {
+    const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }))
+    return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`
+  }, [])
 
   const todayMatches = useMemo(() => {
-    const todayStr = new Date().toISOString().split('T')[0]
-    const todayData = matches.filter((m) => m.date === todayStr)
+    // Get today's date in China timezone (UTC+8), because match dates
+    // are venue-local and we display them in CST
+    const chinaNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }))
+    const todayStr = chinaNow.toISOString().split('T')[0]
+
+    // Also check yesterday/tomorrow in CST to catch matches near day boundary
+    const yesterday = new Date(chinaNow)
+    yesterday.setDate(yesterday.getDate() - 1)
+    const yesterdayStr = yesterday.toISOString().split('T')[0]
+    const tomorrow = new Date(chinaNow)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const tomorrowStr = tomorrow.toISOString().split('T')[0]
+
+    // Match dates in data are venue-local, but when converted to CST
+    // they may fall on a different date. Filter by checking if the match
+    // kicks off during the CST "today" window.
+    const todayData = matches.filter((m) => {
+      // Try to match by venue-local date first (close enough for filtering)
+      return m.date === todayStr || m.date === yesterdayStr || m.date === tomorrowStr
+    })
+
     const source = todayData.length > 0 ? todayData
       : matches.filter((m) => m.status === 'scheduled').slice(0, 4)
-    return source.map((m) => ({
+
+    // Sort by actual kickoff time (UTC timestamp)
+    const sorted = [...source].sort((a, b) => {
+      return `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`)
+    })
+
+    return sorted.map((m) => ({
       id: m.id, ...computeProbabilities(m.homeTeam, m.awayTeam),
       homeTeam: TEAM_NAMES_ZH[m.homeTeam] ?? m.homeTeam, homeFlag: TEAM_FLAGS[m.homeTeam] ?? '⚽',
       awayTeam: TEAM_NAMES_ZH[m.awayTeam] ?? m.awayTeam, awayFlag: TEAM_FLAGS[m.awayTeam] ?? '⚽',
-      kickoff: m.time, venue: m.stadium || '待定', group: m.group ? `${m.group}组` : '',
+      kickoff: formatMatchTimeCST(m.date, m.time, m.stadium, 'M/D HH:mm') + ' (北京)',
+      venue: m.stadium || '待定', group: m.group ? `${m.group}组` : '',
     }))
   }, [matches])
 
@@ -123,7 +153,7 @@ export function AnalysisPage() {
           )}
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20">
             <CalendarDays size={14} className="text-cyan-400" />
-            <span className="text-xs font-bold text-cyan-400">{new Date().toISOString().split('T')[0]}</span>
+            <span className="text-xs font-bold text-cyan-400">{new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Shanghai' })).toISOString().split('T')[0]}</span>
           </div>
         </div>
       </div>
