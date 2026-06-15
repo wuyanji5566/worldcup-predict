@@ -1,6 +1,7 @@
 import { Clock, MapPin, Zap, ChevronRight, Users, Star } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import type { UpcomingMatch } from '@/data/mockData'
+import { formatMatchTimeOnlyCST } from '@/utils/time'
 
 interface FeaturedMatchProps {
   match: UpcomingMatch
@@ -53,7 +54,7 @@ export function FeaturedMatch({ match }: FeaturedMatchProps) {
             <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-surface-3 border border-border-default flex items-center justify-center mb-2">
               <span className="text-sm font-black text-text-tertiary tracking-widest">VS</span>
             </div>
-            <span className="text-[11px] text-text-tertiary font-mono">{match.time}</span>
+            <span className="text-[11px] text-text-tertiary font-mono">{formatMatchTimeOnlyCST(match.date, match.time, match.stadium)}</span>
           </div>
 
           {/* Away */}
@@ -71,7 +72,7 @@ export function FeaturedMatch({ match }: FeaturedMatchProps) {
         <div className="flex items-center justify-center gap-4 mb-4 text-[11px] text-text-tertiary">
           <span className="flex items-center gap-1">
             <Clock size={12} />
-            {match.time}
+            {formatMatchTimeOnlyCST(match.date, match.time, match.stadium)} <span className="text-[10px]">(北京)</span>
           </span>
           <span className="w-1 h-1 rounded-full bg-border-strong" />
           <span className="flex items-center gap-1">

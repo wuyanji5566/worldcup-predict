@@ -11,6 +11,7 @@ import type {
 import { createSnapshot, recalculateProbabilities } from './liveEngine'
 import { fetchLiveMatches } from './realSportsApi'
 import type { CachedMatch } from '@/types/match'
+import { parseKickoffTime, stadiumTimezone } from '@/utils/time'
 
 // ---- Player name pools for simulation ----
 const PLAYER_POOLS: Record<string, string[]> = {
@@ -99,7 +100,7 @@ export const useLiveSyncStore = create<LiveSyncStore>((set, get) => ({
       currentMinute: 0,
       stoppageTime: 0,
       liveEvents: [],
-      kickoffTime: new Date(`${realMatch.date}T${realMatch.time}:00`).getTime(),
+      kickoffTime: parseKickoffTime(realMatch.date, realMatch.time, stadiumTimezone(realMatch.stadium)),
       startedAt: realMatch.status === 'live' ? Date.now() : null,
       lastUpdated: Date.now(),
     }

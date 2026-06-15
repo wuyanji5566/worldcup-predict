@@ -46,7 +46,7 @@ export function MatchCard({ match, className }: MatchCardProps) {
           </span>
         </div>
         {match.status === 'scheduled' && (
-          <CountdownBadge date={match.date} time={match.time} />
+          <CountdownBadge date={match.date} time={match.time} stadium={match.stadium} />
         )}
       </div>
 

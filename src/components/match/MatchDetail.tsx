@@ -1,6 +1,6 @@
 import type { CachedMatch } from '@/types/match'
 import { TEAM_FLAGS, TEAM_NAMES_ZH, STADIUMS, STAGE_LABELS } from '@/utils/constants'
-import { formatCST, parseKickoffTime } from '@/utils/time'
+import { formatCST, parseKickoffTime, stadiumTimezone } from '@/utils/time'
 import { LiveIndicator } from './LiveIndicator'
 import { ScoreDisplay } from './ScoreDisplay'
 import { CountdownBadge } from './CountdownBadge'
@@ -12,7 +12,7 @@ interface MatchDetailProps {
 }
 
 export function MatchDetail({ match }: MatchDetailProps) {
-  const kickoffTs = parseKickoffTime(match.date, match.time)
+  const kickoffTs = parseKickoffTime(match.date, match.time, stadiumTimezone(match.stadium))
   const isLive = match.status === 'live'
 
   return (
@@ -41,7 +41,7 @@ export function MatchDetail({ match }: MatchDetailProps) {
           </div>
           <div className="flex items-center gap-2">
             {isLive && <LiveIndicator />}
-            {match.status === 'scheduled' && <CountdownBadge date={match.date} time={match.time} />}
+            {match.status === 'scheduled' && <CountdownBadge date={match.date} time={match.time} stadium={match.stadium} />}
           </div>
         </div>
 

@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react'
 import { Flame, MapPin } from 'lucide-react'
-import { TEAM_FLAGS, TEAM_NAMES_ZH } from '@/utils/constants'
-
-// June 14, 2026 18:00 CST = June 14, 2026 10:00 UTC
-const TARGET = new Date('2026-06-14T10:00:00Z').getTime()
+import { TEAM_FLAGS, TEAM_NAMES_ZH, STADIUMS } from '@/utils/constants'
+import { parseKickoffTime, stadiumTimezone, formatCST } from '@/utils/time'
+import { useMatchStore } from '@/store/matchStore'
 
 interface TimeLeft {
   days: number; hours: number; minutes: number; seconds: number
   isExpired: boolean
 }
-function calcTimeLeft(): TimeLeft {
-  const diff = TARGET - Date.now()
+
+function calcTimeLeft(targetTs: number): TimeLeft {
+  const diff = targetTs - Date.now()
   if (diff <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0, isExpired: true }
   return {
     days: Math.floor(diff / 86400000),
@@ -24,17 +24,34 @@ function calcTimeLeft(): TimeLeft {
 function pad(n: number) { return String(n).padStart(2, '0') }
 
 export function CountdownTimer() {
-  const [time, setTime] = useState<TimeLeft>(calcTimeLeft)
+  // Get the next upcoming match from the store
+  const matches = useMatchStore((s) => Object.values(s.matches))
+  const upcomingMatches = matches
+    .filter((m) => m.status === 'scheduled')
+    .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`))
+
+  const nextMatch = upcomingMatches[0] ?? null
+
+  const targetTs = nextMatch
+    ? parseKickoffTime(nextMatch.date, nextMatch.time, stadiumTimezone(nextMatch.stadium))
+    : Date.now() + 86400000 // fallback: 1 day from now
+
+  const [time, setTime] = useState<TimeLeft>(() => calcTimeLeft(targetTs))
 
   useEffect(() => {
-    const t = setInterval(() => setTime(calcTimeLeft()), 1000)
+    const t = setInterval(() => setTime(calcTimeLeft(targetTs)), 1000)
     return () => clearInterval(t)
-  }, [])
+  }, [targetTs])
 
-  const homeTeam = '海地'
-  const awayTeam = '苏格兰'
-  const homeFlag = TEAM_FLAGS['Haiti'] ?? '🇭🇹'
-  const awayFlag = TEAM_FLAGS['Scotland'] ?? '🏴󠁧󠁢󠁳󠁣󠁴󠁿'
+  const homeTeam = nextMatch?.homeTeam ?? '—'
+  const awayTeam = nextMatch?.awayTeam ?? '—'
+  const homeFlag = TEAM_FLAGS[homeTeam] ?? '⚽'
+  const awayFlag = TEAM_FLAGS[awayTeam] ?? '⚽'
+  const stadiumCn = STADIUMS[nextMatch?.stadium ?? ''] ?? nextMatch?.stadium ?? '—'
+  const groupLabel = nextMatch?.group ? `${nextMatch.group} 组` : ''
+  const kickoffCST = nextMatch
+    ? formatCST(targetTs, 'YYYY年M月D日 HH:mm')
+    : '待定'
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-rose-500/20 bg-gradient-to-r from-rose-950/30 via-surface-2 to-surface-2">
@@ -52,7 +69,7 @@ export function CountdownTimer() {
           </span>
           <span className="text-[11px] text-slate-500 font-medium flex items-center gap-1">
             <MapPin size={10} />
-            吉列体育场 · 波士顿 · K 组
+            {stadiumCn}{groupLabel && ` · ${groupLabel}`}
           </span>
         </div>
 
@@ -107,7 +124,7 @@ export function CountdownTimer() {
 
         {/* Kickoff time label */}
         <p className="text-center text-[10px] text-slate-600 mt-3">
-          开球时间: 2026年6月14日 18:00 (北京时间)
+          开球时间: {kickoffCST} (北京时间 UTC+8)
         </p>
       </div>
     </div>

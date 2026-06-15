@@ -1,13 +1,14 @@
 import { useCountdown } from '@/hooks/useCountdown'
-import { parseKickoffTime } from '@/utils/time'
+import { parseKickoffTime, stadiumTimezone } from '@/utils/time'
 
 interface CountdownBadgeProps {
   date: string
   time: string
+  stadium?: string
 }
 
-export function CountdownBadge({ date, time }: CountdownBadgeProps) {
-  const ts = parseKickoffTime(date, time)
+export function CountdownBadge({ date, time, stadium }: CountdownBadgeProps) {
+  const ts = parseKickoffTime(date, time, stadium ? stadiumTimezone(stadium) : undefined)
   const { days, hours, minutes, seconds, isExpired } = useCountdown(ts)
 
   if (isExpired) {

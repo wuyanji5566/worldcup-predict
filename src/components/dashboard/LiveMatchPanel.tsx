@@ -6,6 +6,7 @@ import { cn } from '@/utils/cn'
 import { useEffect, useState, useRef } from 'react'
 import { useLiveNotifications } from '@/hooks/useLiveNotifications'
 import { NotificationsOverlay } from './NotificationsOverlay'
+import { formatCST } from '@/utils/time'
 
 export function LiveMatchPanel() {
   const {
@@ -91,7 +92,7 @@ export function LiveMatchPanel() {
                 )}
               </h3>
               <p className="text-[10px] text-slate-500 uppercase tracking-wider">
-                海地 vs 苏格兰 · K 组 · 6月14日
+                {match.homeTeam.nameZh} vs {match.awayTeam.nameZh} · {formatCST(match.kickoffTime, 'M月D日')}
               </p>
             </div>
           </div>

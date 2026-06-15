@@ -1,6 +1,7 @@
 import { Trophy, Users, Target, TrendingUp, ChevronRight, Flame, AlertCircle } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { CountdownTimer } from '@/components/dashboard/CountdownTimer'
+import { formatMatchTimeCST } from '@/utils/time'
 import { LiveMatchPanel } from '@/components/dashboard/LiveMatchPanel'
 import { lazy, Suspense, useMemo } from 'react'
 import { FeaturedMatch } from '@/components/dashboard/FeaturedMatch'
@@ -233,7 +234,7 @@ export function DashboardPage() {
                       <div className="text-[12px] font-medium text-text-primary truncate">
                         {m.homeTeam} vs {m.awayTeam}
                       </div>
-                      <div className="text-[10px] text-text-tertiary">{m.date} · {m.time}</div>
+                      <div className="text-[10px] text-text-tertiary">{formatMatchTimeCST(m.date, m.time, m.stadium, 'M/D HH:mm')} (北京)</div>
                     </div>
                     <ChevronRight size={13} className="text-text-tertiary group-hover:text-accent transition-colors shrink-0" />
                   </a>

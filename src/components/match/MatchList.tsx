@@ -1,7 +1,7 @@
 import type { CachedMatch } from '@/types/match'
 import { MatchCard } from './MatchCard'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { formatCST, parseKickoffTime } from '@/utils/time'
+import { formatMatchDateCST } from '@/utils/time'
 
 interface MatchListProps {
   matches: CachedMatch[]
@@ -33,8 +33,8 @@ export function MatchList({ matches, groupByDate = true }: MatchListProps) {
   return (
     <div className="flex flex-col gap-6">
       {Array.from(grouped.entries()).map(([date, dayMatches]) => {
-        const ts = parseKickoffTime(date, '00:00')
-        const label = formatCST(ts, 'M月D日 dddd')
+        const stadium = dayMatches[0]?.stadium
+        const label = formatMatchDateCST(date, stadium)
         return (
           <div key={date}>
             <h3 className="text-sm font-semibold text-text-muted mb-3 sticky top-14 bg-bg py-2 z-10">

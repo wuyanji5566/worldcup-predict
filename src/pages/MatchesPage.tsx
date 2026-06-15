@@ -5,6 +5,7 @@ import { useMatches } from '@/hooks/useMatches'
 import { useUnlock } from '@/hooks/useUnlock'
 import { useState } from 'react'
 import { cn } from '@/utils/cn'
+import { formatMatchTimeOnlyCST } from '@/utils/time'
 
 export function MatchesPage() {
   const { matches, liveMatches, upcomingMatches, finishedMatches, isLoading, error, refresh } = useMatches()
@@ -226,7 +227,8 @@ function MatchRow({ match, locked }: { match: CachedMatch; locked: boolean }) {
         </div>
         <span className="text-[11px] text-text-tertiary flex items-center gap-1">
           <Clock size={11} />
-          {match.time}
+          {formatMatchTimeOnlyCST(match.date, match.time, match.stadium)}
+          <span className="text-[10px] text-text-muted ml-0.5">(北京)</span>
         </span>
       </div>
 

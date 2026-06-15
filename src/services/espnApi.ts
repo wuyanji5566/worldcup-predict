@@ -6,6 +6,13 @@
 
 import type { CachedMatch, MatchStatus } from '@/types/match'
 import { getItem, setItem } from '@/utils/storage'
+import { stadiumTimezone } from '@/utils/time'
+import dayjs from 'dayjs'
+import utc from 'dayjs/plugin/utc'
+import timezone from 'dayjs/plugin/timezone'
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
 
 const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world'
 const CACHE_KEY = 'espn_match_cache'
@@ -120,15 +127,33 @@ function normalizeEvent(event: EspnEvent): CachedMatch {
   const home = comp.competitors.find((c) => c.homeAway === 'home')
   const away = comp.competitors.find((c) => c.homeAway === 'away')
 
+  // --- Extract venue name and timezone ---
+  const venueName = comp.venue?.fullName ?? ''
+  const tz = stadiumTimezone(venueName) // will fall back to DEFAULT_MATCH_TIMEZONE
+
+  // --- Convert ESPN UTC date to venue-local date+time ---
+  // ESPN returns ISO dates like "2026-06-14T17:00Z" (UTC)
+  const utcTs = dayjs.utc(event.date).valueOf()
+  let localDate: string
+  let localTime: string
+  if (utcTs > 0) {
+    const local = dayjs.utc(utcTs).tz(tz)
+    localDate = local.format('YYYY-MM-DD')
+    localTime = local.format('HH:mm')
+  } else {
+    localDate = event.date.split('T')[0] ?? ''
+    localTime = event.date.split('T')[1]?.slice(0, 5) ?? ''
+  }
+
   if (!home || !away) {
     return {
       id: `espn_${event.id}`,
-      date: event.date.split('T')[0] ?? '',
-      time: '',
+      date: localDate,
+      time: localTime,
       homeTeam: 'Unknown',
       awayTeam: 'Unknown',
       group: null,
-      stadium: '',
+      stadium: venueName,
       stage: 'group',
       status: 'scheduled',
       homeScore: null,
@@ -149,12 +174,12 @@ function normalizeEvent(event: EspnEvent): CachedMatch {
 
   return {
     id: `espn_${event.id}`,
-    date: event.date.split('T')[0] ?? '',
-    time: event.date.split('T')[1]?.slice(0, 5) ?? '',
+    date: localDate,
+    time: localTime,
     homeTeam: home.team.name,
     awayTeam: away.team.name,
     group: groupMatch ? groupMatch[1] : null,
-    stadium: comp.venue?.fullName ?? '',
+    stadium: venueName,
     stage: 'group',
     status,
     homeScore: status === 'scheduled' ? null : parseInt(home.score, 10),

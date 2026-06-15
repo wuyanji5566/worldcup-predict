@@ -123,3 +123,26 @@ export const STADIUMS: Record<string, string> = {
   'Monterrey': 'BBVA 球场 · 蒙特雷',
   'Guadalajara': '阿克伦球场 · 瓜达拉哈拉',
 }
+
+/** IANA timezone for each venue. Match times in data are venue-local. */
+export const STADIUM_TIMEZONES: Record<string, string> = {
+  'Mexico City': 'America/Mexico_City',    // UTC-6
+  'Toronto': 'America/Toronto',            // UTC-4 (EDT)
+  'Los Angeles': 'America/Los_Angeles',    // UTC-7 (PDT)
+  'Miami': 'America/New_York',             // UTC-4 (EDT)
+  'New York': 'America/New_York',          // UTC-4 (EDT)
+  'Dallas': 'America/Chicago',             // UTC-5 (CDT)
+  'San Francisco': 'America/Los_Angeles',  // UTC-7 (PDT)
+  'Seattle': 'America/Los_Angeles',        // UTC-7 (PDT)
+  'Atlanta': 'America/New_York',           // UTC-4 (EDT)
+  'Philadelphia': 'America/New_York',      // UTC-4 (EDT)
+  'Boston': 'America/New_York',            // UTC-4 (EDT)
+  'Houston': 'America/Chicago',            // UTC-5 (CDT)
+  'Kansas City': 'America/Chicago',        // UTC-5 (CDT)
+  'Vancouver': 'America/Vancouver',        // UTC-7 (PDT)
+  'Monterrey': 'America/Monterrey',        // UTC-6 (CST)
+  'Guadalajara': 'America/Mexico_City',    // UTC-6 (CST)
+}
+
+/** Default timezone for matches without a known venue (Eastern = most common US venue TZ) */
+export const DEFAULT_MATCH_TIMEZONE = 'America/New_York'
