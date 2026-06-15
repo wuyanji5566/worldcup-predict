@@ -145,6 +145,11 @@ export function isBeforeKickoff(kickoffTs: number): boolean {
   return Date.now() < kickoffTs
 }
 
+/** Current calendar date in China Standard Time (UTC+8). */
+export function currentDateCST(offsetDays = 0): string {
+  return dayjs().tz('Asia/Shanghai').add(offsetDays, 'day').format('YYYY-MM-DD')
+}
+
 export function isAfterMatch(kickoffTs: number): boolean {
   // Assume 120 minutes for a match
   return Date.now() > kickoffTs + 120 * 60 * 1000

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Flame, MapPin } from 'lucide-react'
 import { TEAM_FLAGS, TEAM_NAMES_ZH, STADIUMS } from '@/utils/constants'
 import { parseKickoffTime, stadiumTimezone, formatCST } from '@/utils/time'
@@ -25,16 +25,20 @@ function pad(n: number) { return String(n).padStart(2, '0') }
 
 export function CountdownTimer() {
   // Get the next upcoming match from the store
-  const matches = useMatchStore((s) => Object.values(s.matches))
-  const upcomingMatches = matches
-    .filter((m) => m.status === 'scheduled')
-    .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`))
+  const matchesById = useMatchStore((s) => s.matches)
+  const upcomingMatches = useMemo(
+    () => Object.values(matchesById)
+      .filter((m) => m.status === 'scheduled')
+      .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`)),
+    [matchesById],
+  )
 
   const nextMatch = upcomingMatches[0] ?? null
+  const [fallbackTarget] = useState(() => Date.now() + 86400000)
 
   const targetTs = nextMatch
     ? parseKickoffTime(nextMatch.date, nextMatch.time, stadiumTimezone(nextMatch.stadium))
-    : Date.now() + 86400000 // fallback: 1 day from now
+    : fallbackTarget
 
   const [time, setTime] = useState<TimeLeft>(() => calcTimeLeft(targetTs))
 

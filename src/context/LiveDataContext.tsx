@@ -10,7 +10,6 @@ import { calculatePredictionPoints } from '@/services/settlementEngine'
 import { useAuthStore } from '@/store/authStore'
 import { usePredictionStore } from '@/store/predictionStore'
 import { useLeaderboardStore } from '@/store/leaderboardStore'
-import { useMatchStore } from '@/store/matchStore'
 import type { LiveMatch, ProbabilitySnapshot, LiveEvent } from '@/services/liveTypes'
 
 // ---- Context value shape ----
@@ -48,17 +47,6 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
   const settledRef = useRef(new Set<string>())
   const prevStatusRef = useRef(match.status)
 
-  // ---- Sync live data into matchStore so "比赛" page shows real-time scores ----
-  useEffect(() => {
-    const store = useMatchStore.getState()
-    store.syncLiveMatch(match.matchId, {
-      homeScore: match.liveScore.home,
-      awayScore: match.liveScore.away,
-      status: match.status,
-      minute: match.currentMinute,
-    })
-  }, [match.matchId, match.liveScore, match.status, match.currentMinute])
-
   // ---- Auto-settlement on FINISHED ----
   useEffect(() => {
     const matchKey = `${match.matchId}-${match.status}`
@@ -84,21 +72,6 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
     }
     prevStatusRef.current = match.status
   }, [match.status, match.matchId, match.liveScore])
-
-  // ---- Attempt to auto-start simulation for today's real live matches ----
-  useEffect(() => {
-    const store = useMatchStore.getState()
-    const liveMatches = Object.values(store.matches).filter(
-      (m) => m.status === 'live' && m.date === new Date().toISOString().split('T')[0],
-    )
-    if (liveMatches.length > 0 && !isRunning) {
-      // Auto-start simulation for the first live match
-      const timer = setTimeout(() => {
-        startSimulation()
-      }, 2000)
-      return () => clearTimeout(timer)
-    }
-  }, []) // eslint-disable-line
 
   const lastEvent = match.liveEvents[0] ?? null
 

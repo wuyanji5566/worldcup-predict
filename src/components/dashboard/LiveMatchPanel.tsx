@@ -3,24 +3,37 @@ import { useLiveSoccerData } from '@/hooks/useLiveSoccerData'
 import { Button } from '@/components/ui/Button'
 import { Play, Square, RotateCcw, TrendingUp, Wifi, WifiOff, Activity } from 'lucide-react'
 import { cn } from '@/utils/cn'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { useLiveNotifications } from '@/hooks/useLiveNotifications'
 import { NotificationsOverlay } from './NotificationsOverlay'
 import { formatCST } from '@/utils/time'
+import { useMatchStore } from '@/store/matchStore'
+import { useLiveSyncStore } from '@/services/liveSync'
 
 export function LiveMatchPanel() {
   const {
     match, probability, isRunning, isLive,
     startSimulation, stopSimulation, resetSimulation,
   } = useLiveData()
+  const matchesById = useMatchStore((s) => s.matches)
+  const setMatchFromReal = useLiveSyncStore((s) => s.setMatchFromReal)
 
-  // Auto-start simulation on mount
+  const primaryMatch = useMemo(() => {
+    const matches = Object.values(matchesById)
+    return matches.find((item) => item.status === 'live')
+      ?? matches
+        .filter((item) => item.status === 'scheduled')
+        .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`))[0]
+      ?? matches
+        .filter((item) => item.status === 'finished')
+        .sort((a, b) => `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`))[0]
+      ?? null
+  }, [matchesById])
+
+  // Keep the panel aligned with the authoritative match store.
   useEffect(() => {
-    if (!isRunning) {
-      const t = setTimeout(() => startSimulation(), 1500)
-      return () => clearTimeout(t)
-    }
-  }, []) // eslint-disable-line
+    if (primaryMatch && !isRunning) setMatchFromReal(primaryMatch)
+  }, [primaryMatch, isRunning, setMatchFromReal])
 
   const { pollState, isStale, secondsSinceLastPoll } = useLiveSoccerData()
   const {
@@ -44,7 +57,7 @@ export function LiveMatchPanel() {
 
   // ---- Live clock ----
   useEffect(() => {
-    if (!isLive) { setClock('00:00'); return }
+    if (!isLive) return
     const t = setInterval(() => {
       const elapsed = Math.floor((Date.now() - (match.startedAt ?? Date.now())) / 60000)
       setClock(`${String(Math.min(elapsed, match.currentMinute)).padStart(2, '0')}:${String(Math.floor(((Date.now() - (match.startedAt ?? Date.now())) % 60000) / 1000)).padStart(2, '0')}`)
@@ -111,7 +124,7 @@ export function LiveMatchPanel() {
             </span>
             {isLive && (
               <span className="text-sm font-black font-mono text-emerald-300 tabular-nums bg-slate-800/60 px-2 py-0.5 rounded-lg">
-                {clock}
+                {isLive ? clock : '00:00'}
               </span>
             )}
           </div>
@@ -154,9 +167,9 @@ export function LiveMatchPanel() {
         {/* ===== PROBABILITY BARS — transition-all duration-700 ease-out ===== */}
         <div className="space-y-2.5 mb-4">
           {[
-            { label: '海地 主胜', v: probability.live.homeWin, b: probability.baseline.homeWin, color: 'bg-red-500/60' },
+            { label: `${match.homeTeam.nameZh} 主胜`, v: probability.live.homeWin, b: probability.baseline.homeWin, color: 'bg-red-500/60' },
             { label: '平局', v: probability.live.draw, b: probability.baseline.draw, color: 'bg-amber-500/50' },
-            { label: '苏格兰 客胜', v: probability.live.awayWin, b: probability.baseline.awayWin, color: 'bg-cyan-400/70' },
+            { label: `${match.awayTeam.nameZh} 客胜`, v: probability.live.awayWin, b: probability.baseline.awayWin, color: 'bg-cyan-400/70' },
           ].map((bar) => {
             const changed = bar.v !== bar.b
             const up = bar.v > bar.b

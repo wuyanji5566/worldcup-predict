@@ -6,7 +6,7 @@
 
 import type { CachedMatch, MatchStatus } from '@/types/match'
 import { getItem, setItem } from '@/utils/storage'
-import { stadiumTimezone } from '@/utils/time'
+import { currentDateCST, stadiumTimezone } from '@/utils/time'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 import timezone from 'dayjs/plugin/timezone'
@@ -197,17 +197,15 @@ function normalizeEvent(event: EspnEvent): CachedMatch {
  * Fetch today's World Cup matches from ESPN
  */
 export async function fetchEspnScoreboard(date?: string): Promise<CachedMatch[]> {
-  const targetDate = date ?? new Date().toISOString().split('T')[0]
+  const targetDate = date ?? currentDateCST()
 
-  // Check cache (only for non-today dates — today always refresh)
-  if (date && date !== new Date().toISOString().split('T')[0]) {
+  // Historical/future dates may use the short cache. Today's scores always refresh.
+  if (targetDate !== currentDateCST()) {
     const cached = getCache(targetDate)
     if (cached) return cached
   }
 
-  const url = date
-    ? `${ESPN_BASE}/scoreboard?dates=${date.replace(/-/g, '')}`
-    : `${ESPN_BASE}/scoreboard`
+  const url = `${ESPN_BASE}/scoreboard?dates=${targetDate.replace(/-/g, '')}`
 
   try {
     const controller = new AbortController()
@@ -239,12 +237,11 @@ export async function fetchEspnScoreboard(date?: string): Promise<CachedMatch[]>
  * Fetch all available World Cup fixtures — today first, then nearby dates in parallel
  */
 export async function fetchEspnAllFixtures(): Promise<CachedMatch[]> {
-  const today = new Date()
   const allMatches: CachedMatch[] = []
   const seen = new Set<string>()
 
-  // 1. Fetch today FIRST (fast path — user sees data immediately)
-  const todayMatches = await fetchEspnScoreboard()
+  // Fetch the China calendar date first, then nearby dates in parallel.
+  const todayMatches = await fetchEspnScoreboard(currentDateCST())
   for (const m of todayMatches) {
     seen.add(m.id)
     allMatches.push(m)
@@ -254,9 +251,7 @@ export async function fetchEspnAllFixtures(): Promise<CachedMatch[]> {
   const dateStrs: string[] = []
   for (let offset = -2; offset <= 3; offset++) {
     if (offset === 0) continue // already fetched today
-    const d = new Date(today)
-    d.setDate(d.getDate() + offset)
-    dateStrs.push(d.toISOString().split('T')[0])
+    dateStrs.push(currentDateCST(offset))
   }
 
   const results = await Promise.allSettled(

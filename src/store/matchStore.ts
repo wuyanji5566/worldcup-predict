@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { CachedMatch } from '@/types/match'
 import { setItem } from '@/utils/storage'
 import { fetchSchedule } from '@/api/matchApi'
-import { WORLD_CUP_GROUPS, TEAM_NAMES_ZH } from '@/utils/constants'
+import { WORLD_CUP_GROUPS } from '@/utils/constants'
 import { loadRealSchedule } from '@/services/baiduSync'
 import { fetchMatchesByDateRange } from '@/services/realSportsApi'
 import { fetchEspnScoreboard, fetchEspnAllFixtures } from '@/services/espnApi'
@@ -14,14 +14,14 @@ function getGroupStageMatches(): CachedMatch[] {
   const groups = Object.entries(WORLD_CUP_GROUPS)
 
   // Each group: 4 teams, 6 matches (round-robin)
-  for (const [group, teams] of groups) {
+  for (const [groupIndex, [group, teams]] of groups.entries()) {
     const fixtures = [
       [0, 1], [2, 3], // Matchday 1
       [0, 2], [1, 3], // Matchday 2
       [0, 3], [1, 2], // Matchday 3
     ]
     // Spread matches across days
-    const dayOffset = groups.indexOf([group, teams] as unknown as typeof groups[number])
+    const dayOffset = groupIndex
 
     for (let fi = 0; fi < fixtures.length; fi++) {
       const [h, a] = fixtures[fi]
@@ -29,29 +29,12 @@ function getGroupStageMatches(): CachedMatch[] {
       matchDate.setDate(matchDate.getDate() + dayOffset + fi * 4)
 
       const dateStr = matchDate.toISOString().split('T')[0]
-      const isPast = matchDate < new Date('2026-06-13')
       const homeName = teams[h]
       const awayName = teams[a]
 
-      let homeScore: number | null = null
-      let awayScore: number | null = null
+      const homeScore: number | null = null
+      const awayScore: number | null = null
       const events: CachedMatch['events'] = []
-
-      if (isPast) {
-        homeScore = Math.floor(Math.random() * 4)
-        awayScore = Math.floor(Math.random() * 4)
-        if (homeScore > 0) {
-          for (let g = 0; g < homeScore; g++) {
-            events.push({ type: 'goal', minute: 10 + g * 30 + Math.floor(Math.random() * 15), player: `${TEAM_NAMES_ZH[homeName] ?? homeName} 球员`, team: 'home' })
-          }
-        }
-        if (awayScore > 0) {
-          for (let g = 0; g < awayScore; g++) {
-            events.push({ type: 'goal', minute: 15 + g * 25 + Math.floor(Math.random() * 10), player: `${TEAM_NAMES_ZH[awayName] ?? awayName} 球员`, team: 'away' })
-          }
-        }
-        events.sort((a, b) => a.minute - b.minute)
-      }
 
       matches.push({
         id: `match_${String(id).padStart(3, '0')}`,
@@ -66,7 +49,7 @@ function getGroupStageMatches(): CachedMatch[] {
           'Atlanta': 1, 'Philadelphia': 1, 'Boston': 1, 'Houston': 1,
         })[id % 12],
         stage: 'group',
-        status: isPast ? 'finished' : 'scheduled',
+        status: 'scheduled',
         homeScore,
         awayScore,
         homePenalties: null,
@@ -97,16 +80,6 @@ interface MatchStore {
   getMatchById: (id: string) => CachedMatch | undefined
 }
 
-// Auto-poll ESPN every 60s for live scores
-let _pollTimer: ReturnType<typeof setInterval> | null = null
-
-function startLivePolling() {
-  if (_pollTimer) return
-  _pollTimer = setInterval(() => {
-    useMatchStore.getState().pollLiveScores()
-  }, 60000) // every 60 seconds
-}
-
 export const useMatchStore = create<MatchStore>((set, get) => ({
   matches: {},
   isLoading: false,
@@ -126,14 +99,9 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
       if (espnMatches.length > 0) {
         const matchMap: Record<string, CachedMatch> = {}
         for (const m of espnMatches) matchMap[m.id] = m
-        // Also merge full tournament structure
-        for (const m of getGroupStageMatches()) {
-          if (!matchMap[m.id]) matchMap[m.id] = m
-        }
         console.log('[数据来源] ✅ ESPN API 实时数据，共', espnMatches.length, '场比赛')
         set({ matches: matchMap, isLoading: false, error: null, lastFetch: Date.now(), dataSource: 'ESPN API 实时数据' })
         setItem('matches', matchMap)
-        startLivePolling() // auto-refresh scores every 60s
         return
       }
     } catch { /* ESPN failed, try next */ }
@@ -169,21 +137,24 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
     if (realSchedule.length > 0) {
       const matchMap: Record<string, CachedMatch> = {}
       for (const m of realSchedule) matchMap[m.id] = m
-      for (const m of getGroupStageMatches()) {
-        if (!matchMap[m.id]) matchMap[m.id] = m
-      }
       console.log('[数据来源] ⚠️ 静态真实赛程，共', realSchedule.length, '场')
       set({ matches: matchMap, isLoading: false, lastFetch: Date.now(), dataSource: '静态真实赛程' })
       setItem('matches', matchMap)
       return
     }
 
-    // Last resort: generate mock data
+    // Last resort: show schedule placeholders without fabricated results.
     const demos = getGroupStageMatches()
     const demoMap: Record<string, CachedMatch> = {}
     for (const m of demos) demoMap[m.id] = m
-    console.log('[数据来源] ❌ 模拟数据（所有API不可用）')
-    set({ matches: demoMap, isLoading: false, error: null, lastFetch: Date.now(), dataSource: '模拟数据' })
+    console.log('[数据来源] ⚠️ 备用赛程（所有真实数据源不可用）')
+    set({
+      matches: demoMap,
+      isLoading: false,
+      error: '实时数据暂不可用，当前仅展示备用赛程，不包含比分',
+      lastFetch: Date.now(),
+      dataSource: '备用赛程',
+    })
     setItem('matches', demoMap)
   },
 
@@ -191,13 +162,19 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
     set({ isLoading: true, error: null })
     // Try ESPN first for refresh (fast, free, real data)
     try {
-      const espnMatches = await fetchEspnScoreboard()
+      const espnMatches = await fetchEspnAllFixtures()
       if (espnMatches.length > 0) {
-        const matchMap: Record<string, CachedMatch> = { ...get().matches }
+        const matchMap: Record<string, CachedMatch> = {}
         for (const m of espnMatches) {
           matchMap[m.id] = m
         }
-        set({ matches: matchMap, isLoading: false, lastFetch: Date.now() })
+        set({
+          matches: matchMap,
+          isLoading: false,
+          error: null,
+          lastFetch: Date.now(),
+          dataSource: 'ESPN API 实时数据',
+        })
         setItem('matches', matchMap)
         return
       }
@@ -206,7 +183,7 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
     try {
       const { matches: apiMatches, error } = await fetchSchedule()
       if (!error && apiMatches.length > 0) {
-        const matchMap: Record<string, CachedMatch> = { ...get().matches }
+        const matchMap: Record<string, CachedMatch> = {}
         for (const m of apiMatches) {
           matchMap[m.id] = m
         }
@@ -223,7 +200,7 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
     try {
       const espnMatches = await fetchEspnScoreboard()
       if (espnMatches.length === 0) return
-      const matchMap = { ...get().matches }
+      const matchMap = get().dataSource === '备用赛程' ? {} : { ...get().matches }
       let updated = false
       for (const em of espnMatches) {
         const existing = matchMap[em.id]
@@ -233,7 +210,12 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
         }
       }
       if (updated) {
-        set({ matches: matchMap, lastFetch: Date.now() })
+        set({
+          matches: matchMap,
+          error: null,
+          lastFetch: Date.now(),
+          dataSource: 'ESPN API 实时数据',
+        })
         setItem('matches', matchMap)
       }
     } catch { /* silent */ }
